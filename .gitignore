@@ -1,0 +1,7 @@
+_test
+.DS_Store
+.Rapp.history
+.Rproj.user
+tmp/
+.RData
+.Rhistory
