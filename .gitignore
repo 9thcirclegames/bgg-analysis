@@ -5,5 +5,4 @@ _test
 tmp/
 .RData
 .Rhistory
-/data/sitemap
-/data/raw/*/*.xml
+/data
