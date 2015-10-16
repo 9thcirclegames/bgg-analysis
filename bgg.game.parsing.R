@@ -1,10 +1,3 @@
-require(XML)
-require(RCurl)
-require(plyr)
-require(beepr)
-require(stringi)
-require(readr)
-
 source("./include/bgg.get.R")
 
 loc <- stri_replace_all_charclass(
@@ -16,7 +9,7 @@ loc <- stri_replace_all_charclass(
 
 loc.games <- loc[grepl("sitemap_geekitems_boardgame_page_", loc)]
 
-games.sitemap2 <- do.call(
+games.sitemap <- do.call(
   rbind.fill, lapply(loc.games, function(x) {
 
     xmlToDataFrame(xmlParse(getURL(x, ssl.verifypeer=FALSE)))
