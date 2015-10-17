@@ -1,4 +1,6 @@
-parse.statistics <- function(collection){
+parse.statistics <- function(xml){
+  
+  collection <- xmlParse(xml, asText=TRUE)
   
   items <- xmlToList(xmlRoot(collection))
   items[[length(items)]] <- NULL
