@@ -1,5 +1,3 @@
-require(XML)
-require(RCurl)
 require(plyr)
 
 source("./include/bgg.cache.R")
