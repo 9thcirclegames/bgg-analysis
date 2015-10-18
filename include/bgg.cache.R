@@ -49,7 +49,7 @@ bgg.cache <- function(ids,
     url <- URLencode(paste0(endpoint, "/thing?", paste0("id=", paste(ids.misses, collapse=","), "&", query.parameters)))
     
     misses.xml            <- xmlParse(getURL(url, ssl.verifypeer=FALSE), encoding = "UTF-8", asText=TRUE, asTree=TRUE)
-
+    
     # Update the collection
     xmlAttrs(collection.xml.root) <- xmlAttrs(xmlRoot(misses.xml))
     addChildren(collection.xml.root, xmlChildren(xmlRoot(misses.xml)))
@@ -72,28 +72,30 @@ bgg.cache <- function(ids,
       )
       return(xmlAttrs(x)['id'])
     })
-
+    
   }
   
   if(length(ids.hits) > 0){
-    # Save each item to the cacje
+    # Save each item to the cache
     sapply(ids.hits, function(id){
       
       hits.xml <- xmlParse(file.path(cache.dir, collection.attributes, paste(id, "xml", sep=".")), asText=FALSE)
-
+      
       item <- xmlChildren(xmlRoot(hits.xml))
       
       # Update the collection
       xmlAttrs(collection.xml.root) <- xmlAttrs(xmlRoot(hits.xml))
-
       addChildren(collection.xml.root, item)
       
       return(id)
     })
   }
-
+  
   collection.xml$closeTag()
   
-  return(collection.xml)
-
+  return(saveXML(collection.xml, 
+                 prefix = '<?xml version="1.0" encoding=\"UTF-8\"?>',
+                 indent = TRUE)
+  )
+  
 }
