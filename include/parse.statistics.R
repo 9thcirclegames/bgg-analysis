@@ -1,20 +1,53 @@
-parse.statistics <- function(xml){
-  
-  collection <- xmlParse(xml, asText=TRUE)
-  
-  items <- xmlToList(xmlRoot(collection))
-  items[[length(items)]] <- NULL
+require(XML)
+require(plyr)
 
-  game.stats <- do.call(rbind.fill, lapply(items, function(item){
-    item.stats <- as.matrix(unlist(item$statistics$ratings))
-    return(as.data.frame(t(item.stats[which(!grepl("^ranks", row.names(item.stats))),]), stringsAsFactors=FALSE)) 
-  }))
+parse.statistics <- function(xml, sep = ","){
   
-  indx <- sapply(game.stats, is.character)
-  game.stats[indx] <- lapply(game.stats[indx], function(x) as.numeric(x))
+  games.statistics <- do.call(rbind.fill, list(
+    
+    xpathApply(xmlRoot(xmlParse(xml, asText=TRUE)), "//items/item", function(item){
+
+      item.statistics <- do.call(data.frame,
+                                 xpathApply(item, "statistics/ratings/child::*", function(statistic){
+                                   statistic.name <- xmlName(statistic) 
+                                   
+                                   switch(statistic.name,
+                                          ranks = (function(){
+                                            
+                                            statistic.ranks <- do.call(data.frame, list(lapply(xmlChildren(statistic), function(rank){
+                                              
+                                              rank.value <- data.frame(
+                                                name=xmlAttrs(rank)['name'],
+                                                pos=suppressWarnings(as.numeric(xmlAttrs(rank)['value'])),
+                                                bayesaverage=suppressWarnings(as.numeric(xmlAttrs(rank)['bayesaverage']))
+                                              )
+                                              
+                                              names(rank.value) <- paste(xmlAttrs(rank)['type'], names(rank.value), sep=".")
+                                              
+                                              return(rank.value)
+                                              
+                                            }), stringsAsFactors=FALSE)
+                                            )
+                                            
+                                            return(statistic.ranks)
+                                          })(),
+                                          # The 'default' case should cover the remaining polls
+                                          (function(){
+                                            
+                                            statistic.value <- data.frame(stat=as.numeric(xmlAttrs(statistic)['value']))
+                                            names(statistic.value) <- xmlName(statistic)
+                                            
+                                            return(statistic.value)
+                                            
+                                          })()
+                                   ) # end-switch
+                                   
+                                 })
+      )
+      
+    }), stringsAsFactors=FALSE)
+  )
   
-  names(game.stats) <- paste("stats", names(game.stats), sep=".")
-  
-  return(game.stats)
-  
+  return(games.statistics)
 }
+

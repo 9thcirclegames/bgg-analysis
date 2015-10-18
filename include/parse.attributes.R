@@ -1,35 +1,33 @@
-parse.attributes <- function(collection, sep = ","){
+require(XML)
+require(plyr)
 
-  items <- xmlToList(xmlRoot(collection))
-  items[[length(items)]] <- NULL
-  
-  links <- lapply(items, function(x) {
-    n <- names(x)
-    l <- lapply(x[which(n=="link")], function(y) {y})
-  })
-  
-  
-  # TODO: Resolve
-  #   Warning message:
-  #     In (function (..., deparse.level = 1)  :
-  #           number of columns of result is not a multiple of vector length (arg 1)
-  links.goes <- lapply(links, function(game){ do.call(rbind, game) })
+parse.attributes <- function(xml, sep = ","){
 
-  game.attributes <- do.call(rbind.fill, lapply(links.goes, function(g) {
-    row.names(g) <- NULL
-    g <- as.data.frame(g, stringsAsFactors = FALSE)
-
-    fg <- t(as.matrix(unique(within(g, {
-      values <- ave(value, type, FUN = function(x) paste(x, collapse = sep))
-    })[,c("type", "values")])))
-    
-    colnames(fg) <- fg[1,]
-
-    return(data.frame(t(fg[2,])))
-  }))
-
-  names(game.attributes) <- paste("attributes", names(game.attributes), sep=".")
+  games.attributes <- do.call(rbind.fill, list(xpathApply(xmlRoot(xmlParse(xml, asText=TRUE)), "//items/item", function(item){
   
-  return(data.frame(attributes.num=rowSums(!is.na(game.attributes)), game.attributes))
+      #meta <- as.data.frame(t(xmlAttrs(item)), stringsAsFactors=FALSE)
+      #meta$type <- as.factor(meta$type)
+
+      item.links <- do.call(rbind,
+                            xpathApply(item, "link", function(link){
+                              link.value <- data.frame(type=xmlAttrs(link)['type'], 
+                                                       value=xmlAttrs(link)['value'], 
+                                                       stringsAsFactors=FALSE)
+                              
+                              return(link.value)
+                              
+                            })
+      )
+      
+      links.concat <- t(as.matrix(unique(within(item.links, {
+        values <- ave(value, type, FUN = function(x) paste(x, collapse = sep))
+      })[,c("type", "values")])))
+      
+      colnames(links.concat) <- links.concat[1,]
+      
+      return(data.frame(t(links.concat[2,]), stringsAsFactors=FALSE))
+    }), stringsAsFactors=FALSE)
+  )
   
+  return(data.frame(total=rowSums(!is.na(games.attributes)), games.attributes))
 }

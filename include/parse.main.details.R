@@ -1,9 +1,14 @@
-parse.main.details <- function(collection){
+require(XML)
+require(plyr)
+require(dplyr)
+
+parse.main.details <- function(xml){
   
   fields <- c("image",
               "thumbnail",
               "description",
               "yearpublished",
+              "releasedate",
               "minplayers",
               "maxplayers",
               "playingtime",
@@ -11,27 +16,32 @@ parse.main.details <- function(collection){
               "maxplaytime",
               "minage")
   
-  els = getNodeSet(xmlRoot(collection), "//items/item")
-  header <- do.call(rbind.fill, list(
-    lapply(els, function(x){
-      data.frame(id=xmlAttrs(x)['id'], type=xmlAttrs(x)['type'], stringsAsFactors=FALSE)
-    }) , stringsAsFactors=FALSE)
+  game.details <- do.call(rbind.fill, list(xpathApply(xmlRoot(xmlParse(xml, asText=TRUE)), "//items/item", function(item){
+
+    content <- xmlChildren(item)
+    content.subset <- content[which(names(content) %in% fields)]
+    
+    details <- do.call(data.frame, list(lapply(content.subset, function(detail){
+      
+      detail.value <- data.frame(detail=ifelse(length(xmlAttrs(detail)['value']) >0, xmlAttrs(detail)['value'], xmlValue(detail, recursive=FALSE, trim=TRUE)), stringsAsFactors=FALSE)
+      names(detail.value) <- xmlName(detail)
+      
+      return(detail.value)
+      
+    }), stringsAsFactors=FALSE)
+    )
+    
+    primary.names <- xpathSApply(item, "name[@type='primary']", function(name){
+      return(xmlAttrs(name)['value'])
+    })
+    
+    return(data.frame(name=primary.names, details, stringsAsFactors=FALSE))
+    
+  }), stringsAsFactors=FALSE)
   )
   
-  
-  items <- xmlToList(xmlRoot(collection))
-  items[[length(items)]] <- NULL
-  game.details <- detailsDataToDF(items, fields=fields)
-  
-  primary.name <- unlist(lapply(items, function(x) {
-    n <- names(x)
-    all.names <- as.data.frame(t(as.matrix(sapply(lapply(x[which(n=="name")], function(y) {y}), c))), stringsAsFactors = FALSE)
-    return(all.names[which(all.names$type == "primary"),]$value)
-  })
-  )
-  
-  names(game.details) <- paste("details", names(game.details), sep=".")
-  
-  return(data.frame(header, name=primary.name, game.details))
+  game.details <- game.details %>% mutate_each(funs(type.convert(as.character(.))), -one_of("name", "image", "thumbnail", "description"))
+
+  return(game.details)
   
 }
