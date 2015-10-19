@@ -3,7 +3,8 @@ require(plyr)
 
 parse.polls <- function(xml, cut.players = 10){
 
-  games.polls <- do.call(rbind.fill, list(xpathApply(xmlParse(xml, asText=TRUE), "//items/item", function(item){
+  collection <- xmlParse(xml, asText=TRUE, useInternalNodes = TRUE)
+  games.polls <- do.call(rbind.fill, list(xpathApply(collection, "//items/item", function(item){
 
       #meta <- as.data.frame(t(xmlAttrs(item)))
       #meta$type <- as.factor(meta$type)
@@ -25,7 +26,7 @@ parse.polls <- function(xml, cut.players = 10){
                                      results.name <- paste(poll.name, sub("[0-9]*\\+", "Over", xmlAttrs(results)['numplayers']), sep=".")
                                      
                                      results.set <- do.call(data.frame, list(
-                                       lapply(xmlChildren(results), function(result) {
+                                       lapply(xmlChildren(results, addFinalizer=FALSE), function(result) {
                                          result.name <- gsub("\\s", "", xmlAttrs(result)['value'])
                                          result.numvotes <- data.frame(as.numeric(xmlAttrs(result)['numvotes']))
                                          names(result.numvotes) <- paste(results.name, result.name, "numvotes", sep=".") 
@@ -50,7 +51,7 @@ parse.polls <- function(xml, cut.players = 10){
                                      
                                      return(data.frame(poll_summary, results.totalvotes, results.set))
                                      
-                                   }), stringsAsFactors=FALSE)
+                                   }, addFinalizer=FALSE), stringsAsFactors=FALSE)
                                  )
                                  
                                  return(poll.results[,unlist(lapply(strsplit(names(poll.results), "\\."), function(x){
@@ -72,7 +73,7 @@ parse.polls <- function(xml, cut.players = 10){
                                      result.numvotes <- data.frame(as.numeric(xmlAttrs(result)['numvotes']))
                                      names(result.numvotes) <- paste(poll.name, result.name, "numvotes", sep=".") 
                                      return(result.numvotes) 
-                                   }), stringsAsFactors=FALSE)
+                                   }, addFinalizer=FALSE), stringsAsFactors=FALSE)
                                  )
                                  
                                  poll_summary <- data.frame(as.factor(ifelse(poll.totalvotes>0, 
@@ -92,7 +93,7 @@ parse.polls <- function(xml, cut.players = 10){
         
         return(data.frame(poll.totalvotes, poll.details))
         
-      }), stringsAsFactors=FALSE)
+      }, addFinalizer=FALSE), stringsAsFactors=FALSE)
       )
       
       #return(data.frame(meta, polls))
@@ -100,6 +101,8 @@ parse.polls <- function(xml, cut.players = 10){
       
     }), stringsAsFactors=FALSE)
   )
+  
+  free(collection)
   
   return(games.polls)
   

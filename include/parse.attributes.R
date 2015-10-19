@@ -3,10 +3,8 @@ require(plyr)
 
 parse.attributes <- function(xml, sep = ","){
 
-  games.attributes <- do.call(rbind.fill, list(xpathApply(xmlRoot(xmlParse(xml, asText=TRUE)), "//items/item", function(item){
-  
-      #meta <- as.data.frame(t(xmlAttrs(item)), stringsAsFactors=FALSE)
-      #meta$type <- as.factor(meta$type)
+  collection <- xmlParse(xml, asText=TRUE, useInternalNodes = TRUE)
+  games.attributes <- do.call(rbind.fill, list(xpathApply(xmlRoot(collection), "//items/item", function(item){
 
       item.links <- do.call(rbind,
                             xpathApply(item, "link", function(link){
@@ -16,7 +14,7 @@ parse.attributes <- function(xml, sep = ","){
                               
                               return(link.value)
                               
-                            })
+                            }, addFinalizer=FALSE)
       )
       
       links.concat <- t(as.matrix(unique(within(item.links, {
@@ -26,8 +24,12 @@ parse.attributes <- function(xml, sep = ","){
       colnames(links.concat) <- links.concat[1,]
       
       return(data.frame(t(links.concat[2,]), stringsAsFactors=FALSE))
-    }), stringsAsFactors=FALSE)
+    }, addFinalizer=FALSE), stringsAsFactors=FALSE)
   )
+  
+  free(collection)
+  rm(collection)
+  gc()
   
   return(data.frame(total=rowSums(!is.na(games.attributes)), games.attributes))
 }

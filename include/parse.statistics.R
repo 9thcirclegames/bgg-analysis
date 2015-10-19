@@ -3,9 +3,11 @@ require(plyr)
 
 parse.statistics <- function(xml, sep = ","){
   
+  collection <- xmlParse(xml, asText=TRUE, useInternalNodes = TRUE)
+  
   games.statistics <- do.call(rbind.fill, list(
     
-    xpathApply(xmlRoot(xmlParse(xml, asText=TRUE)), "//items/item", function(item){
+    xpathApply(collection, "//items/item", function(item){
 
       item.statistics <- do.call(data.frame,
                                  xpathApply(item, "statistics/ratings/child::*", function(statistic){
@@ -14,15 +16,14 @@ parse.statistics <- function(xml, sep = ","){
                                    switch(statistic.name,
                                           ranks = (function(){
                                             
-                                            statistic.ranks <- do.call(data.frame, list(lapply(xmlChildren(statistic), function(rank){
+                                            statistic.ranks <- do.call(data.frame, list(lapply(xmlChildren(statistic, addFinalizer=FALSE), function(rank){
                                               
                                               rank.value <- data.frame(
-                                                name=xmlAttrs(rank)['name'],
                                                 pos=suppressWarnings(as.numeric(xmlAttrs(rank)['value'])),
                                                 bayesaverage=suppressWarnings(as.numeric(xmlAttrs(rank)['bayesaverage']))
                                               )
                                               
-                                              names(rank.value) <- paste(xmlAttrs(rank)['type'], names(rank.value), sep=".")
+                                              names(rank.value) <- paste(xmlAttrs(rank)['type'], xmlAttrs(rank)['name'], names(rank.value), sep=".")
                                               
                                               return(rank.value)
                                               
@@ -42,11 +43,13 @@ parse.statistics <- function(xml, sep = ","){
                                           })()
                                    ) # end-switch
                                    
-                                 })
+                                 }, addFinalizer=FALSE)
       )
       
     }), stringsAsFactors=FALSE)
   )
+  
+  free(collection)
   
   return(games.statistics)
 }
