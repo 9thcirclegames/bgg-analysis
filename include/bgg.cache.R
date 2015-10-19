@@ -5,7 +5,7 @@ require(RCurl)
 
 bgg.cache <- function(ids,
                       parameters,
-                      endpoint = "https://www.boardgamegeek.com/xmlapi2",
+                      endpoint = "http://www.boardgamegeek.com/xmlapi2",
                       cache.dir = "./data"){
   
   collection.attributes <- sub("_$", "",
@@ -37,7 +37,6 @@ bgg.cache <- function(ids,
   dir.create(file.path(cache.dir, collection.attributes), showWarnings = FALSE)
   cache <- list.files(file.path(cache.dir, collection.attributes))
   
-  # (function(x) x + 3)(10)
   ids.misses <- ids[files %nin% cache]
   ids.hits   <- ids[files %in% cache]
   
@@ -46,16 +45,18 @@ bgg.cache <- function(ids,
   
   if(length(ids.misses) > 0){
     
+    message(paste("Cache miss! Going to download the games with the following ids:", paste(ids.misses, collapse=","), "..."))
+    
     url <- URLencode(paste0(endpoint, "/thing?", paste0("id=", paste(ids.misses, collapse=","), "&", query.parameters)))
     
-    misses.xml            <- xmlParse(getURL(url, ssl.verifypeer=FALSE), encoding = "UTF-8", asText=TRUE, asTree=TRUE)
+    misses.xml            <- xmlParse(getURL(url, ssl.verifypeer=FALSE), encoding = "UTF-8", asText=TRUE, asTree=TRUE, useInternalNodes = TRUE)
     
     # Update the collection
     xmlAttrs(collection.xml.root) <- xmlAttrs(xmlRoot(misses.xml))
-    addChildren(collection.xml.root, xmlChildren(xmlRoot(misses.xml)))
+    addChildren(collection.xml.root, xmlChildren(xmlRoot(misses.xml), addFinalizer=FALSE))
     
-    # Save each item to the cacje
-    sapply(items, function(x){
+    # Save each item to the cache
+    sapply(xmlChildren(xmlRoot(misses.xml)), function(x){
       xml.cache <- suppressWarnings(xmlTree(xmlName(xmlRoot(misses.xml)), attrs = xmlAttrs(xmlRoot(misses.xml))))
       addChildren(xmlRoot(xml.cache), list(x))
       xml.cache$closeTag()
@@ -70,8 +71,15 @@ bgg.cache <- function(ids,
           paste(xmlAttrs(x)['id'], "xml", sep=".")
         )
       )
+      
+      free(xml.cache)
+      rm(xml.cache)
+      gc()
+      
       return(xmlAttrs(x)['id'])
     })
+    
+    free(misses.xml)
     
   }
   
@@ -79,13 +87,17 @@ bgg.cache <- function(ids,
     # Save each item to the cache
     sapply(ids.hits, function(id){
       
-      hits.xml <- xmlParse(file.path(cache.dir, collection.attributes, paste(id, "xml", sep=".")), asText=FALSE)
+      hits.xml <- xmlParse(file.path(cache.dir, collection.attributes, paste(id, "xml", sep=".")), asText=FALSE, useInternalNodes = TRUE)
       
-      item <- xmlChildren(xmlRoot(hits.xml))
+      item <- xmlChildren(xmlRoot(hits.xml), addFinalizer=FALSE)
       
       # Update the collection
       xmlAttrs(collection.xml.root) <- xmlAttrs(xmlRoot(hits.xml))
       addChildren(collection.xml.root, item)
+      
+      free(hits.xml)
+      rm(hits.xml)
+      gc()
       
       return(id)
     })
@@ -93,9 +105,12 @@ bgg.cache <- function(ids,
   
   collection.xml$closeTag()
   
-  return(saveXML(collection.xml, 
+  xml <- saveXML(collection.xml, 
                  prefix = '<?xml version="1.0" encoding=\"UTF-8\"?>',
                  indent = TRUE)
-  )
   
+  rm(collection.xml)
+  gc()
+  
+  return(xml)
 }
