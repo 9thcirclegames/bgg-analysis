@@ -1,6 +1,6 @@
 require(plyr)
 
-source("./include/bgg.cache.R")
+source("./include/bgg.cache.alternate.R")
 
 bgg.get <- function(ids,
                     parameters = list(
@@ -14,7 +14,7 @@ bgg.get <- function(ids,
                     parsers = list(),
                     .progress = create_progress_bar()){
   
-  id.pagination.define <- 40
+  id.pagination.define <- 80
   
   id.v <- unique(unlist(strsplit(ids, split = ",")))
   id.f <- rep(seq_len(ceiling(length(id.v) / id.pagination.define)),each = id.pagination.define,length.out = length(id.v))
@@ -35,17 +35,20 @@ bgg.get <- function(ids,
     
     # Reorder columns
     cols <- paste0("^(", names(parsers), ")")
-    s <- names(bgg.complete)
+    s <- names(all.games)
     n <- seq_along(cols)
     for(i in n) s <- sub(cols[i], paste0(n[i], "\\1"), s)
     new_vec <- substr(s[order(s)], 2, nchar(s[order(s)]))
+    
+    .progress$term()
+    
     return(all.games[,new_vec])
     
   }
   
   else {
     
-    game.collection <- bgg.cache(ids = id.v, parameters = parameters)
+    game.collection <- bgg.cache.alternate(ids = id.v, parameters = parameters)
     
     game.data <- do.call(data.frame, list(lapply(seq_along(parsers), function(y, n, i) { 
       games.snap <- do.call(y[[i]], list(game.collection))
@@ -59,7 +62,7 @@ bgg.get <- function(ids,
       .progress$init(length(ids)+1)
       .progress$step()
     }
-    
+
     return(game.data)
     
   }
