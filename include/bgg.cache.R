@@ -1,6 +1,3 @@
-require(XML)
-require(RCurl)
-
 '%nin%' <- Negate('%in%')
 
 bgg.cache <- function(ids,
@@ -44,6 +41,9 @@ bgg.cache <- function(ids,
   collection.xml.root <- xmlRoot(collection.xml)
   
   if(length(ids.misses) > 0){
+    
+    require(XML)
+    require(RCurl)
     
     message(paste("Cache miss! Going to download the games with the following ids:", paste(ids.misses, collapse=","), "..."))
     
