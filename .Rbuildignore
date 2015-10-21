@@ -1,0 +1,15 @@
+^.*\.Rproj$
+^\.Rproj\.user$
+^.*\.kdev4$
+^\.kdev4
+^\.DS_Store$
+^README.md$
+^README\.html$
+^README_files/*
+^cran-comments\.md$
+^\.git
+^aclocal\.m4$
+^configure\.ac$
+^\.gitignore$
+^\.travis\.yml$
+^data-raw$

@@ -1,8 +1,38 @@
-_test
+# Some Windows dust:
 .DS_Store
-.Rapp.history
+
+# KDevelop project files:
+*.kdev4
+.kdev4
+
+# LaTeX/knitr:
+*.aux
+*.log
+*.out
+cache-knitr/
+
+
+# backup files:
+*~
+*.backup
+*.bak
+
+# R/RStudio files:
+*.Rproj
 .Rproj.user
-tmp/
-.RData
 .Rhistory
+.RData
+.Rapp.history
+
+# Example code in package build process:
+*-Ex.R
+
+# Previewing README
+README.html
+
+# Temporary and Test Data
+_test
+tmp/
 /data
+inst/doc
+cache/
