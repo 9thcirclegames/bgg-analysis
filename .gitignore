@@ -33,6 +33,5 @@ README.html
 # Temporary and Test Data
 _test
 tmp/
-/data
 inst/doc
 cache/
