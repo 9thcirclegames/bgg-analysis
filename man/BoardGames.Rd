@@ -3,8 +3,8 @@
 \docType{data}
 \name{BoardGames}
 \alias{BoardGames}
-\title{The complete BoardGameGeeks dataset at Oct2015}
-\format{A data frame with 79916 rows and 98 variables:}
+\title{The complete BoardGameGeeks dataset (as October 2015)}
+\format{A data frame with 79916 rows and 97 variables}
 \source{
 \url{https://boardgamegeek.com/}
 }

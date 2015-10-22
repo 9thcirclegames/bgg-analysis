@@ -8,8 +8,8 @@ Date: 2015-10-21
 URL: https://gabrielebaldassarre.com
 BugReports: https://github.com/theclue/bgg-analysis/issues
 Depends: R (>= 3.0)
-Imports: rjson, RCurl, plyr, dplyr, XML, xml2, splitstackshape
-Suggests: testthat, knitr
+Imports: plyr, dplyr, splitstackshape, ggplot2, arules
+Suggests: testthat, knitr, rjson, RCurl, XML, xml2
 License: MIT + file LICENSE
 NeedsCompilation: no
 BuildKeepEmpty: TRUE
