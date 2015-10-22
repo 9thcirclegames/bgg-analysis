@@ -1,3 +1,6 @@
+require(plyr)
+require(dplyr)
+
 bgg.get <- function(ids,
                     parameters = list(
                       stats=TRUE,
@@ -44,7 +47,7 @@ bgg.get <- function(ids,
 
   else {
 
-    game.collection <- bgg.cache.alternate(ids = id.v, parameters = parameters)
+    game.collection <- bgg.cache(ids = id.v, parameters = parameters)
 
     game.data <- do.call(data.frame, list(lapply(seq_along(parsers), function(y, n, i) {
       games.snap <- do.call(y[[i]], list(game.collection))
