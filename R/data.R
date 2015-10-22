@@ -3,7 +3,7 @@
 #' A dataset containing the attributes and the ratings for around 80,000 boardgames
 #' in a format suitable for data mining.
 #'
-#' @format A data frame with 79916 rows and 98 variables
+#' @format A data frame with 79916 rows and 97 variables
 #' @docType data
 #' @keywords datasets
 #' @name BoardGames
