@@ -11,9 +11,12 @@ bgg.prepare.data(bgg.dataset)
 }
 \description{
 This function will prepare the dataset removing unuseful character attributes,
-removing videogames (and videogames-only attributes) and finally creating the dummyvars
-for boardgame category and mechanics.
-It also remove the 'details.name' attribute (you can always merge with the BoardGame dataset to retrive it)
-and the 'stats.median' column, as it seems to be broken in BGG XMLAPI2.
+removing videogames (and videogames-only attributes).
+It also remove the 'details.name' attribute and the 'stats.median' column,
+as it seems to be broken in BGG XMLAPI2.
+Some exploratory analysis bring us that lot of games have yearpublished=0:
+this is definitively a missing we put to NA.
+Then, we removed games with yearpublished < 1959 (in the .05 percentile and really unuseful)
+and > 2015 (games not released yet)
 }
 
