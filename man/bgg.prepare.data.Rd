@@ -4,7 +4,7 @@
 \alias{bgg.prepare.data}
 \title{Prepare the dataset for the mining stuff}
 \usage{
-bgg.prepare.data(bgg.dataset)
+bgg.prepare.data(bgg.dataset = BoardGames)
 }
 \arguments{
 \item{bgg.dataset}{the BoardGames dataset object to prepare}

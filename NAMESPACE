@@ -2,5 +2,6 @@
 
 export(bgg.prepare.data)
 export(bgg.prepare.dummy)
+importFrom(dplyr,"%>%")
 importFrom(dplyr,select)
 importFrom(splitstackshape,cSplit_e)
