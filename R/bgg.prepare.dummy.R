@@ -1,6 +1,7 @@
-#' Prepare the dataset for the mining stuff
+#' Decode dummy variables
 #'
-#' This function will create the dummy variables from category and mechanic
+#' This function will create the dummy variables for some attributes (game category and game mechanic atm).
+#' It doesn't drop the original columns.
 #'
 #' @param bgg.dataset the BoardGames dataset object
 #'

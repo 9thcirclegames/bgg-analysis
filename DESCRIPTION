@@ -2,7 +2,7 @@ Package: bggAnalysis
 Type: Package
 Version: 0.0.1
 Title: What makes a game a good game?
-Description: An attempt to perform a data analysis from user-generated contento from BoardGameGeeks data
+Description: An attempt to perform a data analysis from user-generated content from BoardGameGeeks data
 Authors@R: person("Gabriele", "Baldassarre", role = c("aut", "cre"), email = "gabriele@gabrielebaldassarre.com")
 Date: 2015-10-21
 URL: https://gabrielebaldassarre.com

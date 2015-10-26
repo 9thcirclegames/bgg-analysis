@@ -2,7 +2,7 @@
 % Please edit documentation in R/bgg.prepare.dummy.R
 \name{bgg.prepare.dummy}
 \alias{bgg.prepare.dummy}
-\title{Prepare the dataset for the mining stuff}
+\title{Decode dummy variables}
 \usage{
 bgg.prepare.dummy(bgg.dataset)
 }
@@ -10,6 +10,7 @@ bgg.prepare.dummy(bgg.dataset)
 \item{bgg.dataset}{the BoardGames dataset object}
 }
 \description{
-This function will create the dummy variables from category and mechanic
+This function will create the dummy variables for some attributes (game category and game mechanic atm).
+It doesn't drop the original columns.
 }
 

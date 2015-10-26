@@ -7,16 +7,21 @@
 bgg.prepare.data(bgg.dataset)
 }
 \arguments{
-\item{bgg.dataset}{the BoardGames dataset object}
+\item{bgg.dataset}{the BoardGames dataset object to prepare}
 }
 \description{
-This function will prepare the dataset removing unuseful character attributes,
-removing videogames (and videogames-only attributes).
-It also remove the 'details.name' attribute and the 'stats.median' column,
-as it seems to be broken in BGG XMLAPI2.
-Some exploratory analysis bring us that lot of games have yearpublished=0:
-this is definitively a missing we put to NA.
-Then, we removed games with yearpublished < 1959 (in the .05 percentile and really unuseful)
-and > 2015 (games not released yet)
+This function prepares the dataset removing unuseful character attributes,
+removing videogames (and videogames-only attributes).\cr\
+These are the performed operations:
+\itemize{
+\item It removes the \code{details.name} attribute, as it's a redundand ambiguous identifier,
+and the \code{stats.median} column, as it seems to be broken in BGG XMLAPI2.
+\item Some exploratory analysis bring up that lot of games have yearpublished=0: this is probably a missing
+set to zero by mistake, so we put to NA (we are aware that we have some very ancient games in the dataset, but we
+consider them as outliers).
+\item Finally, we removed games with \code{yearpublished < 1959} (.05 percentile and really unuseful).\cr
+We are aware that there are some games with \code{yearpublished > 2015}, but we decided to keep those
+yet unreleased games as they could be useful as test set.
+}
 }
 
