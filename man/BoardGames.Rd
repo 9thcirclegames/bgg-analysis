@@ -31,6 +31,7 @@ and so on. Some of them in details:\itemize{
 \item \code{stats.average} - the average rating of the game (from 1 to 10);
 \item \code{stats.usersrated} - the number of unique users rating the game;
 \item \code{stats.numcomments} - the number of unique comments to the game;
+\item \code{stats.averageweight} - the rating of difficulty of the game, from 1 (easy) to 5 (heavy);
 \item \code{stats.owned}, \code{stats.wanting}, \code{stats.wishing}, \code{stats.trading} - from the BGG Marketplace section;
 \item \code{stats.rank.family.*} and \code{stats.rank.subtype.*} on how the game ranks into the internal leaderboards
 about game family and game subtype.
