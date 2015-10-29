@@ -85,14 +85,124 @@ ggplot(bgg.useful, aes(details.playingtime)) +
 
 # ok let's try the average weight. O is missing so let me leave it out. this distro is a multimodal I could love, sometimes...
 ggplot(bgg.useful, aes(stats.averageweight)) +
-  geom_histogram(aes(y = ..density..), binwidth = .1, fill="deeppink", alpha=.2, col="deeppink") + geom_density(col="deeppink", lwd=1) +
+  geom_histogram(aes(y = ..density..), binwidth = .05, fill="deeppink", alpha=.2, col="deeppink") + geom_density(col="deeppink", lwd=1) +
   xlim(1,5)
 
 ggplot(bgg.useful, aes(details.maxplayers)) +
   geom_histogram(aes(y = ..density..), binwidth = 1, fill="deeppink", alpha=.2, col="deeppink") + geom_density(col="deeppink", lwd=1) +
   xlim(1,30)
 
+#### tutte le stats seguono la powerlaw...
+
+# segue la power law
 ggplot(bgg.useful, aes(x = stats.owned)) +
   geom_histogram(aes(y = ..density..), binwidth = 30, fill="red", alpha=.2, col="deeppink") + geom_density(col="red", lwd=1) +
   geom_vline(xintercept=median(bgg.useful$stats.owned, na.rm=TRUE), color="black") +
   xlim(c(0, quantile(bgg.useful$stats.owned, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+ggplot(bgg.useful, aes(x = stats.usersrated)) +
+  geom_histogram(aes(y = ..density..), binwidth = 2, fill="red", alpha=.2, col="deeppink") + geom_density(col="red", lwd=1) +
+  geom_vline(xintercept=median(bgg.useful$stats.owned, na.rm=TRUE), color="black") +
+  xlim(c(0, quantile(bgg.useful$stats.usersrated, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+ggplot(bgg.useful, aes(x = stats.wishing)) +
+  geom_histogram(aes(y = ..density..), binwidth = 2, fill="red", alpha=.2, col="deeppink") + geom_density(col="red", lwd=1) +
+  geom_vline(xintercept=median(bgg.useful$stats.owned, na.rm=TRUE), color="black") +
+  xlim(c(0, quantile(bgg.useful$stats.wishing, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+ggplot(bgg.useful, aes(x = stats.averageweight)) +
+  geom_histogram(aes(y = ..density..), binwidth = .05, fill="red", alpha=.2, col="deeppink") + geom_density(col="red", lwd=1)
+
+# la variabile dipendente è normale, tutte le statistiche di collection seguono la powerlaw
+
+# c'è una certa regressione positiva con la difficoltà e il rating:
+ggplot(bgg.useful[which(bgg.useful$stats.averageweight > 0),], aes(x=stats.averageweight, y=stats.average)) +
+  geom_point(alpha=.2, col="deeppink") +
+  geom_smooth(data=subset(bgg.useful,
+                          attributes.boardgamemechanic %in% head(bgg.mechanics.freq[ order(-bgg.mechanics.freq[,2]), ]$attributes.boardgamemechanic,5)),
+              aes(x=stats.averageweight, y=stats.average, color=attributes.boardgamemechanic),
+              method="lm",
+              se=FALSE,
+              fullrange=TRUE) +
+  geom_smooth(method="lm", lwd=1) +
+  ylim(2.5, 9)
+# (hardcore gamers -> bisogna spaccare le dummy sulle categorie perché sicuramente su children, party ecc. l'andamento non è lo stesso)
+
+# slope = 0, ma non per tutti i language_dependence...e' sicuramente qualcosa legato alla meccanica
+ggplot(bgg.useful, aes(x=stats.trading, y=stats.average, color=polls.language_dependence)) +
+  geom_point(alpha=.2, col="deeppink") +
+  geom_smooth(method="lm", se=FALSE) +
+  xlim(c(0, quantile(bgg.useful$stats.trading, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+bgg.mechanics.freq <- bgg.useful %>% group_by(attributes.boardgamemechanic) %>% summarize(count=n())
+
+# effettivamente e' cosi' principalmente per dice e hex...da approfondire)
+ggplot(bgg.useful, aes(x=stats.trading, y=stats.average, color=attributes.boardgamemechanic)) +
+  geom_point(alpha=.2, col="deeppink") +
+  geom_smooth(data=subset(bgg.useful,
+                          attributes.boardgamemechanic %in% head(bgg.mechanics.freq[ order(-bgg.mechanics.freq[,2]), ]$attributes.boardgamemechanic,10)), aes(x=stats.trading, y=stats.average, color=attributes.boardgamemechanic), method="lm", se=FALSE) +
+  xlim(c(0, quantile(bgg.useful$stats.trading, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+bgg.category.freq <- bgg.useful %>% group_by(attributes.boardgamecategory) %>% summarize(count=n())
+
+#
+ggplot(bgg.useful, aes(x=stats.trading, y=stats.average, color=attributes.boardgamecategory)) +
+  geom_point(alpha=.2, col="deeppink") +
+  geom_smooth(data=subset(bgg.useful,
+                          attributes.boardgamecategory %in% head(bgg.category.freq[ order(-bgg.category.freq[,2]), ]$attributes.boardgamecategory,10)), aes(x=stats.trading, y=stats.average, color=attributes.boardgamecategory), method="lm", se=FALSE) +
+  xlim(c(0, quantile(bgg.useful$stats.trading, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+# regressione rating e playingtime
+ggplot(bgg.useful, aes(x=details.playingtime, y=stats.average)) +
+  geom_point(alpha=.2, col="deeppink", position=position_jitter(width=1,height=.5)) +
+  geom_smooth(method="lm", lwd=1) +
+  geom_smooth(data=subset(bgg.useful,
+                          attributes.boardgamemechanic %in% head(bgg.mechanics.freq[ order(-bgg.mechanics.freq[,2]), ]$attributes.boardgamemechanic,5)), aes(x=details.playingtime, y=stats.average, color=attributes.boardgamemechanic),
+              method="lm",
+              se=FALSE,
+              fullrange=TRUE) +
+ xlim(c(0, quantile(bgg.useful$details.playingtime, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+# players
+
+ggplot(bgg.useful, aes(x=details.minplayers, y=stats.average)) +
+  geom_point(alpha=.2, col="deeppink", position=position_jitter(width=1,height=.5)) +
+  geom_smooth(method="lm", lwd=1) +
+  geom_smooth(data=subset(bgg.useful,
+                          attributes.boardgamemechanic %in% head(bgg.mechanics.freq[ order(-bgg.mechanics.freq[,2]), ]$attributes.boardgamemechanic,5)), aes(x=details.minplayers, y=stats.average, color=attributes.boardgamemechanic),
+              method="lm",
+              se=FALSE,
+              fullrange=TRUE)
+
+ggplot(bgg.useful, aes(x=details.maxplayers, y=stats.average)) +
+  geom_point(alpha=.2, col="deeppink", position=position_jitter(width=.2,height=.2)) +
+  geom_smooth(method="lm", lwd=1) +
+  geom_smooth(data=subset(bgg.useful,
+                          attributes.boardgamemechanic %in% head(bgg.mechanics.freq[ order(-bgg.mechanics.freq[,2]), ]$attributes.boardgamemechanic,5)), aes(x=details.maxplayers, y=stats.average, color=attributes.boardgamemechanic),
+              method="lm",
+              se=FALSE,
+              fullrange=TRUE)+
+  xlim(c(0, quantile(bgg.useful$details.maxplayers, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+ggplot(bgg.useful, aes(x=(details.maxplayers - details.minplayers), y=stats.average)) +
+  geom_point(alpha=.2, col="deeppink", position=position_jitter(width=.2,height=.2)) +
+  geom_smooth(lwd=1) +
+  xlim(c(0, quantile(bgg.useful$details.maxplayers, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+
+ggplot(bgg.useful, aes(y=(details.maxplayers - details.minplayers), x=details.minplayers)) +
+  geom_point(alpha=.2, col="deeppink", position=position_jitter(width=.2,height=.2)) +
+  geom_smooth(lwd=1, method="lm") +
+  xlim(c(0, quantile(bgg.useful$details.maxplayers, seq(0, 1, 0.05), na.rm = TRUE)['95%']))+
+  ylim(0,12)
+
+ggplot(bgg.useful, aes(y=details.maxplayers, x=details.minplayers)) +
+  geom_point(alpha=.2, col="deeppink", position=position_jitter(width=.2,height=.2)) +
+  geom_smooth(lwd=1, method="lm") +
+  xlim(c(0, quantile(bgg.useful$details.maxplayers, seq(0, 1, 0.05), na.rm = TRUE)['95%']))+
+  ylim(0,12)
+
+ggplot(bgg.useful, aes(y=details.maxplaytime, x=details.maxplayers)) +
+  geom_point(alpha=.2, col="deeppink", position=position_jitter(width=.2,height=2)) +
+  geom_smooth(lwd=1) +
+  ylim(c(0, quantile(bgg.useful$details.maxplaytime, seq(0, 1, 0.05), na.rm = TRUE)['95%']))+
+  xlim(0,10)
