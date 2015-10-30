@@ -59,7 +59,7 @@ ggtitle("Cumulative freq-plot of User Ratings") +
 #########################################
 # PREPARING SOME TOP RANK ATTRIBUTES    #
 #########################################
-how.many.tops <- 7
+how.many.tops <- 5
 
 bgg.categories.freq <- (bgg.useful %>% group_by(attributes.boardgamecategory) %>% summarize(count=n()))
 bgg.categories.freq <- bgg.categories.freq[order(-bgg.categories.freq[,2]),]
@@ -98,6 +98,18 @@ ggplot(bgg.useful %>% mutate(attributes.top.mechanics=ifelse(game.id %in% bgg.to
   geom_density(data=bgg.useful, aes(x = stats.average), col="red", lwd=1, fill="deeppink", alpha=.2) +
   xlim(0,10) +
   geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+
+# Mutual effects between mechanics and categories
+ggplot(bgg.useful %>% 
+         mutate(attributes.top.categories=ifelse(game.id %in% bgg.top.categories$game.id, attributes.boardgamecategory, "Other Category")) %>%
+         mutate(attributes.top.mechanics=ifelse(game.id %in% bgg.top.mechanics$game.id, attributes.boardgamemechanic, "Other Mechanic"))
+       ,
+       aes(x = stats.average, colour=attributes.top.categories)) +
+  geom_density() +
+  geom_density(data=bgg.useful, aes(x = stats.average), col="red", lwd=1, fill="deeppink", alpha=.2) +
+  xlim(0,10) +
+  geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black") +
+  facet_wrap(~ attributes.top.mechanics, nrow=3)
 
 # Historical wargames have higher average rating, yet still gaussian distribution
 ggplot(bgg.useful %>% mutate(attributes.top.categories=ifelse(game.id %in% bgg.top.categories$game.id, attributes.boardgamecategory, "Other Category")),
@@ -179,7 +191,7 @@ ggplot(bgg.useful %>% filter(stats.averageweight > 0) %>% mutate(attributes.top.
   geom_smooth(method="lm", lwd=1, fullrange=TRUE) +
   geom_smooth(data=bgg.useful %>% filter(stats.averageweight > 0),
               aes(x=stats.averageweight, y=stats.average), method="lm", se=FALSE, col="grey") +
-  facet_grid(. ~ attributes.top.mechanics) +
+  facet_wrap(~ attributes.top.mechanics, nrow=3) +
   ylim(2.5, 9)
 
 # It doens't seems to be an effect of language dependence between weight and rating
