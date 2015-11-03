@@ -1,3 +1,12 @@
+################
+# REQS         #
+################
+if(! "dplyr" %in% installed.packages()) install.packages("dplyr", depend = TRUE)
+if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2", depend = TRUE)
+
+require(dplyr)
+require(ggplot2)
+
 data("BoardGames")
 
 BoardGames <- bgg.prepare.data(BoardGames)
