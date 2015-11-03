@@ -3,9 +3,11 @@
 ################
 if(! "dplyr" %in% installed.packages()) install.packages("dplyr", depend = TRUE)
 if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2", depend = TRUE)
+if(! "GGally" %in% installed.packages()) install.packages("GGally", depend = TRUE)
 
 require(dplyr)
 require(ggplot2)
+require(GGally)
 
 data("BoardGames")
 
@@ -302,3 +304,20 @@ ggplot(bgg.useful, aes(y=details.maxplaytime, x=details.maxplayers)) +
   geom_smooth(lwd=1) +
   ylim(c(0, quantile(bgg.useful$details.maxplaytime, seq(0, 1, 0.05), na.rm = TRUE)['95%']))+
   xlim(0,10)
+
+############################
+# CORRELATION PLOTS        #
+############################
+bgg.pairs <- bgg.useful %>%
+  filter(as.numeric(details.yearpublished) >=1980 & as.numeric(details.yearpublished) < 2015) %>%
+  filter(details.playingtime <= quantile(bgg.useful$details.playingtime, seq(0, 1, 0.05), na.rm = TRUE)['95%']) %>%
+  filter(details.minplayers < 5 & details.minplayers > 0) %>%
+  filter(!is.na(stats.average) & stats.average > 0) %>%
+  filter(!is.na(stats.averageweight) & stats.averageweight > 0) %>%
+  mutate(
+    details.minplayers=as.factor(details.minplayers),
+    details.maxplayers=as.factor(details.maxplayers),
+    year.discrete=as.factor(signif(as.numeric(details.yearpublished), 3))) %>%
+  select(one_of("stats.average", "details.minplayers", "details.playingtime", "stats.averageweight", "year.discrete"))
+
+ggpairs(bgg.pairs, color="year.discrete", alpha=.4, lower=list(combo="facetdensity", continuous="smooth"))
