@@ -4,13 +4,15 @@
 if(! "dplyr" %in% installed.packages()) install.packages("dplyr", depend = TRUE)
 if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2", depend = TRUE)
 if(! "arules" %in% installed.packages()) install.packages("arules", depend = TRUE)
+if(! "cluster" %in% installed.packages()) install.packages("cluster", depend = TRUE)
 
 if(! "arulesViz" %in% installed.packages()) install.packages("arulesViz", depend = TRUE)
 
 require(arules)
 require(dplyr)
 require(ggplot2)
-require("arulesViz")
+require(arulesViz)
+require(cluster)
 
 require(bggAnalysis)
 
@@ -75,7 +77,7 @@ bgg.cross.transactions <- as(bgg.cross.matrix, "transactions")
 
 bgg.cross.freq <- itemFrequency(bgg.cross.transactions)
 
-bgg.cross.plot <- data.frame(item=names(c(bgg.mechanic.freq, bgg.category.freq)), count=c(bgg.mechanic.freq, bgg.category.freq)) %>% 
+bgg.cross.plot <- data.frame(item=names(c(bgg.mechanic.freq, bgg.category.freq)), count=c(bgg.mechanic.freq, bgg.category.freq)) %>%
   group_by(item) %>% summarize(count=sum(count))
 bgg.cross.plot$type <- as.factor(ifelse(bgg.cross.plot$item %in% names(bgg.category.freq==TRUE), ifelse(bgg.cross.plot$item == "Memory", "Both", "Category"), "Mechanic"))
 
@@ -108,9 +110,14 @@ subset.matrix[lower.tri(subset.matrix, diag=T)] <- NA
 mechanic.rules.pruned <- mechanic.rules[!(colSums(subset.matrix, na.rm=T) >= 1)]
 
 inspect(mechanic.rules.pruned)
-plot(mechanic.rules.pruned, method="graph", interactive=TRUE, control=list(type="items"))
+plot(mechanic.rules.pruned, method="graph", control=list(type="items"))
 
 
 mechanics.dis <- dissimilarity(bgg.mechanic.transactions[,itemFrequency(bgg.mechanic.transactions)>0.01], method = "phi", which="items")
 mechanics.dis[is.na(mechanics.dis)] <- 1
 plot(hclust(mechanics.dis), cex=1)
+
+mechanics.clustering <- pam(mechanics.dis, k = 8)
+plot(mechanics.clustering)
+
+mechanics.allLabels <- predict(bgg.mechanic.transactions[mechanics.clustering$medoids], bgg.mechanic.transactions, method = "Jaccard")
