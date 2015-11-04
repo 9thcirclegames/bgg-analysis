@@ -4,10 +4,13 @@
 if(! "dplyr" %in% installed.packages()) install.packages("dplyr", depend = TRUE)
 if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2", depend = TRUE)
 if(! "GGally" %in% installed.packages()) install.packages("GGally", depend = TRUE)
+if(! "wesanderson" %in% installed.packages()) install.packages("wesanderson", depend = TRUE)
 
 require(dplyr)
 require(ggplot2)
 require(GGally)
+require(wesanderson)
+require(plyr)
 
 data("BoardGames")
 
@@ -64,7 +67,7 @@ quantile(bgg.useful$stats.average, seq(0, 1, 0.05), na.rm = TRUE)
 
 ggplot(bgg.useful, aes(stats.usersrated)) +
   stat_ecdf(geom="step", lwd=1, col="red") +
-ggtitle("Cumulative freq-plot of User Ratings") +
+  ggtitle("Cumulative freq-plot of User Ratings") +
   xlim(c(0, quantile(bgg.useful$stats.usersrated, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
 
 #########################################
@@ -93,17 +96,41 @@ ggplot(bgg.useful, aes(x = stats.average)) +
   xlim(0,10) +
   geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
 
+# Splitting by year class
+# There is a strong positive shift in average ratings among the last decade
+ggplot(bgg.useful %>% 
+         mutate(year.discrete=as.factor(round_any(as.numeric(details.yearpublished), 5))) %>%
+         filter(as.numeric(details.yearpublished) >=1980 & as.numeric(details.yearpublished) < 2015)
+       , aes(year.discrete, stats.average, fill=year.discrete)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Rating") + xlab("Decade") +
+  geom_hline(yintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+
 # Still gaussian while splitting by language_dependence
 # Unplayable games seems to suffer a considerable rating loss
 ggplot(bgg.useful, aes(x = stats.average, colour=polls.language_dependence)) +
   geom_density() +
   geom_density(aes(x = stats.average), col="red", lwd=1, fill="deeppink", alpha=.2) +
   xlim(0,10) +
-  geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+  theme_bw() +
+  geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black") +
+  scale_fill_manual(values=wes_palette(name="Darjeeling"))
+
+ggplot(bgg.useful %>% 
+         mutate(year.discrete=as.factor(signif(as.numeric(details.yearpublished), 3))) %>%
+         filter(as.numeric(details.yearpublished) >=1980 & as.numeric(details.yearpublished) < 2015)
+       , aes(year.discrete, stats.average, fill=polls.language_dependence)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Density of Average Ratings") + xlab("Average Rating") +
+  geom_hline(yintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black") +
+  scale_fill_manual(values=wes_palette(name="Darjeeling"))
 
 # Some gamemechanics express a gaussian distribution with a different median than the cumulative distribution
 # game mechanics from the top could be a good classification attribute: Roll, Tile Placement, Hand Managements
-ggplot(bgg.useful %>% mutate(attributes.top.mechanics=ifelse(game.id %in% bgg.top.mechanics$game.id, attributes.boardgamemechanic, "Other Mechanic")),
+ggplot(bgg.useful %>%
+         mutate(attributes.top.mechanics=ifelse(game.id %in% bgg.top.mechanics$game.id, attributes.boardgamemechanic, "Other Mechanic")),
        aes(x = stats.average, colour=attributes.top.mechanics)) +
   geom_density() +
   geom_density(data=bgg.useful, aes(x = stats.average), col="red", lwd=1, fill="deeppink", alpha=.2) +
@@ -192,7 +219,7 @@ ggplot(bgg.useful, aes(x = stats.averageweight)) +
 # This is due the fact that BGG users are almost hardcore gamers
 ggplot(bgg.useful %>% filter(stats.averageweight > 0), aes(x=stats.averageweight, y=stats.average)) +
   geom_point(alpha=.2, col="deeppink") +
-   geom_smooth(method="lm", lwd=1, fullrange=TRUE) +
+  geom_smooth(method="lm", lwd=1, fullrange=TRUE) +
   ylim(2.5, 9)
 
 # For simpler mechanics and games, the positive regression between weight and rating is stronger than for complex games like hex-and-counter
@@ -241,7 +268,7 @@ ggplot(bgg.useful %>% filter(stats.averageweight > 0) %>% mutate(attributes.top.
        aes(x=polls.language_dependence, y=stats.averageweight, colour=polls.language_dependence)) +
   geom_boxplot(alpha=.2) +
   facet_grid(. ~ attributes.top.mechanics)
-  ylim(0, 5)
+ylim(0, 5)
 
 #
 ggplot(bgg.useful, aes(x=stats.trading, y=stats.average, color=attributes.boardgamecategory)) +
@@ -259,7 +286,7 @@ ggplot(bgg.useful, aes(x=details.playingtime, y=stats.average)) +
               method="lm",
               se=FALSE,
               fullrange=TRUE) +
- xlim(c(0, quantile(bgg.useful$details.playingtime, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
+  xlim(c(0, quantile(bgg.useful$details.playingtime, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
 
 # players
 
@@ -318,6 +345,29 @@ bgg.pairs <- bgg.useful %>%
     details.minplayers=as.factor(details.minplayers),
     details.maxplayers=as.factor(details.maxplayers),
     year.discrete=as.factor(signif(as.numeric(details.yearpublished), 3))) %>%
-  select(one_of("stats.average", "details.minplayers", "details.playingtime", "stats.averageweight", "year.discrete"))
+  #select(one_of("stats.average", "details.minplayers", "details.playingtime", "stats.averageweight", "year.discrete"))
+  select(one_of("stats.average", "details.minplayers", "details.playingtime", "stats.averageweight", "polls.language_dependence"))
 
-ggpairs(bgg.pairs, color="year.discrete", alpha=.4, lower=list(combo="facetdensity", continuous="smooth"))
+
+# Gained insights:
+# 1, Positive regressions between weight and playingtime
+# 2. Quality is increasing over time. This is expecially true for the last decade
+# 3. Avg. Weight is going decreasing in the last 3 decades
+# 4. There is an increasing positive regression between weight and average that is going to be significant in the last decade for all games
+# except those that are strongly language dependant.
+# 5. Playing time assumes mostly discrete values and it could be discretized among these value. It's decreasing over time in the last two
+#    decades
+# 6. Years can be discretized in interval of 5 or 10yrs (TBD)
+# 7. The playing time is still greater for 1-2 players game. It's decreasing in the last decade, but still very high for those two segments
+ggpairs(bgg.pairs, color="polls.language_dependence", alpha=.4, lower=list(continuous="smooth"))
+
+
+#############################
+# DISCRETIZING PLAYING TIME #
+#############################
+
+# It could safely be discretized in itnerval of 15mins
+ggplot(bgg.useful, aes(x = round_any(details.playingtime, 15))) +
+  geom_histogram(aes(y = ..count..), binwidth = 5, fill="red", alpha=.2, col="deeppink") +
+  geom_vline(xintercept=mean(bgg.useful$details.playingtime, na.rm=TRUE), color="black") +
+  xlim(c(0, quantile(bgg.useful$details.playingtime, seq(0, 1, 0.05), na.rm = TRUE)['95%']))

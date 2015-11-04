@@ -10,6 +10,7 @@ if(! "arulesViz" %in% installed.packages()) install.packages("arulesViz", depend
 require(arules)
 require(dplyr)
 require(ggplot2)
+require("arulesViz")
 
 require(bggAnalysis)
 
@@ -32,7 +33,7 @@ bgg.categories.matrix <- as.matrix(select(bgg.useful.dummy, starts_with("attribu
 colnames(bgg.categories.matrix) <- gsub("attributes.boardgamecategory.", "", colnames(select(bgg.useful.dummy, starts_with("attributes.boardgamecategory"))))
 row.names(bgg.categories.matrix) <- paste("Game", c(1:nrow(bgg.useful.dummy)), sep=".")
 
-bgg.category.transactions <- as(bgg.useful.matrix, "transactions")
+bgg.category.transactions <- as(bgg.categories.matrix, "transactions")
 
 bgg.category.freq <- itemFrequency(bgg.category.transactions)
 
@@ -90,3 +91,26 @@ ggplot(bgg.cross.plot %>% arrange(desc(count)) %>% filter(count>.01),
   ylim(0,.22)
 
 
+###########################
+#     APRIORI             #
+###########################
+mechanic.rules <- apriori(bgg.mechanic.transactions,
+                 parameter = list(minlen=2, supp=0.001),
+                 #appearance = list(rhs=c("Survived=No", "Survived=Yes"), default="lhs"),
+                 control = list(verbose=TRUE))
+
+mechanic.rules <- sort(mechanic.rules, by="lift")
+
+# find redundant rules
+subset.matrix <- is.subset(mechanic.rules, mechanic.rules)
+subset.matrix[lower.tri(subset.matrix, diag=T)] <- NA
+# remove redundant rules
+mechanic.rules.pruned <- mechanic.rules[!(colSums(subset.matrix, na.rm=T) >= 1)]
+
+inspect(mechanic.rules.pruned)
+plot(mechanic.rules.pruned, method="graph", interactive=TRUE, control=list(type="items"))
+
+
+mechanics.dis <- dissimilarity(bgg.mechanic.transactions[,itemFrequency(bgg.mechanic.transactions)>0.01], method = "phi", which="items")
+mechanics.dis[is.na(mechanics.dis)] <- 1
+plot(hclust(mechanics.dis), cex=1)
