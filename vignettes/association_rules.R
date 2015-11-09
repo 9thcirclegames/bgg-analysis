@@ -6,7 +6,7 @@ if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2", depend = T
 if(! "arules" %in% installed.packages()) install.packages("arules", depend = TRUE)
 if(! "cluster" %in% installed.packages()) install.packages("cluster", depend = TRUE)
 if(! "ggdendro" %in% installed.packages()) install.packages("ggdendtro", depend = TRUE)
-
+if(! "dummies" %in% installed.packages()) install.packages("dummies", depend = TRUE)
 if(! "arulesViz" %in% installed.packages()) install.packages("arulesViz", depend = TRUE)
 
 require(arules)
@@ -15,6 +15,7 @@ require(ggplot2)
 require(arulesViz)
 require(cluster)
 require(ggdendro)
+require(dummies)
 
 require(bggAnalysis)
 
@@ -99,9 +100,9 @@ ggplot(bgg.cross.plot %>% arrange(desc(count)) %>% filter(count>.01),
 #        Mechanics        #
 ###########################
 mechanic.rules <- apriori(bgg.mechanic.transactions,
-                 parameter = list(minlen=2, supp=0.001),
-                 #appearance = list(rhs=c("Survived=No", "Survived=Yes"), default="lhs"),
-                 control = list(verbose=TRUE))
+                          parameter = list(minlen=2, supp=0.001),
+                          #appearance = list(rhs=c("Survived=No", "Survived=Yes"), default="lhs"),
+                          control = list(verbose=TRUE))
 
 mechanic.rules <- sort(mechanic.rules, by="lift")
 
@@ -157,9 +158,9 @@ plot(categories.clustering)
 #          Cross          #
 ###########################
 cross.unbalanced.rules <- apriori(bgg.cross.transactions,
-                          parameter = list(minlen=2, supp=0.001),
-                          #appearance = list(rhs=c("Survived=No", "Survived=Yes"), default="lhs"),
-                          control = list(verbose=TRUE))
+                                  parameter = list(minlen=2, supp=0.001),
+                                  #appearance = list(rhs=c("Survived=No", "Survived=Yes"), default="lhs"),
+                                  control = list(verbose=TRUE))
 
 cross.unbalanced.rules <- sort(cross.unbalanced.rules, by="lift")
 
@@ -188,9 +189,9 @@ dev.off()
 
 # Balanced
 cross.balanced.rules <- apriori(bgg.cross.transactions,
-                                  parameter = list(minlen=2, supp=0.001),
-                                  appearance = list(rhs=names(bgg.mechanic.freq), default="lhs"),
-                                  control = list(verbose=TRUE))
+                                parameter = list(minlen=2, supp=0.001),
+                                appearance = list(rhs=names(bgg.mechanic.freq), default="lhs"),
+                                control = list(verbose=TRUE))
 
 cross.balanced.rules <- sort(cross.balanced.rules, by="lift")
 
@@ -207,9 +208,9 @@ inspect(cross.balanced.rules.pruned)
 
 # Backwarded analysis is much more interesting...
 cross.balanced.rules2 <- apriori(bgg.cross.transactions,
-                                parameter = list(minlen=2, supp=0.001),
-                                appearance = list(lhs=names(bgg.mechanic.freq), default="rhs"),
-                                control = list(verbose=TRUE))
+                                 parameter = list(minlen=2, supp=0.001),
+                                 appearance = list(lhs=names(bgg.mechanic.freq), default="rhs"),
+                                 control = list(verbose=TRUE))
 
 cross.balanced.rules2 <- sort(cross.balanced.rules2, by="lift")
 
@@ -220,5 +221,52 @@ cross.balanced.subset.matrix2[lower.tri(cross.balanced.subset.matrix2, diag=T)] 
 cross.balanced.rules.pruned2 <- cross.balanced.rules2[!(colSums(cross.balanced.subset.matrix2, na.rm=T) >= 1)]
 
 inspect(cross.balanced.rules.pruned2)
-plot(cross.balanced.rules.pruned2, method="graph", control=list(type="items"))
+
+bgg.games.arules <- BoardGames %>% filter(is.na(details.yearpublished) | details.yearpublished <= 2015) %>% filter(game.type == "boardgame") %>% filter(stats.usersrated > 700)
+
+bgg.games.arules <- bgg.games.arules[order(-bgg.games.arules$stats.usersrated),]
+
+bgg.games.dummy <- bgg.prepare.dummy(bgg.games.arules)
+
+############################
+# Similarity between games #
+# ------------------------ #
+# Only for top-rated games #
+############################
+top.rated.num <- 200
+
+bgg.games.arules <- sort(BoardGames, sort="details.usersrating") %>% filter(is.na(details.yearpublished) | details.yearpublished <= 2015) %>% filter(game.type == "boardgame") %>% filter(stats.usersrated > 700)
+
+bgg.games.dummy <- bgg.prepare.dummy(bgg.games.arules)
+bgg.games.dummy <- cbind(
+  bgg.games.dummy
+  ,dummy("details.minplayers", bgg.games.dummy, sep=".")
+  ,dummy("details.maxplayers", bgg.games.dummy, sep=".")
+  ,dummy("details.playingtime", bgg.games.dummy, sep=".")
+  ,dummy("details.minage", bgg.games.dummy, sep=".")
+)
+
+
+bgg.games.matrix <- as.matrix(select(bgg.games.dummy, 
+                                     starts_with("details.minplayers."),
+                                     starts_with("details.maxplayers."),
+                                     starts_with("details.playingtime."),
+                                     starts_with("details.minage."),
+                                     starts_with("attributes.boardgamecategory"),
+                                     #starts_with("attributes.boardgamemechanic"),
+                                     -one_of("attributes.boardgamecategory.Memory")
+                                     ,-one_of("attributes.boardgamemechanic.DiceRolling")
+                                     )
+                              )
+
+colnames(bgg.games.matrix) <- gsub("attributes.(boardgamemechanic|boardgamecategory).", "", colnames(bgg.games.matrix))
+row.names(bgg.games.matrix) <- gsub(" ", " ", bgg.games.dummy$details.name)
+
+bgg.games.transactions <- as(bgg.games.matrix, "transactions")
+
+pdf(file="./tmp/games.similarity.huge.pdf", width=35)
+games.dis <- dissimilarity(bgg.games.transactions[1:top.rated.num,], method = "phi")
+games.dis[is.na(games.dis)] <- 1
+plot(hclust(games.dis), cex=.6)
+dev.off()
 
