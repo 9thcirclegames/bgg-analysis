@@ -238,14 +238,17 @@ top.rated.num <- 200
 bgg.games.arules <- sort(BoardGames, sort="details.usersrating") %>% filter(is.na(details.yearpublished) | details.yearpublished <= 2015) %>% filter(game.type == "boardgame") %>% filter(stats.usersrated > 700)
 
 bgg.games.dummy <- bgg.prepare.dummy(bgg.games.arules)
+bgg.games.dummy$stats.weight.factor <- round_any(bgg.games.dummy$stats.averageweight, .5)
+bgg.games.dummy$details.playingtime <- round_any(bgg.games.dummy$details.playingtime, 15)
+
 bgg.games.dummy <- cbind(
   bgg.games.dummy
   ,dummy("details.minplayers", bgg.games.dummy, sep=".")
   ,dummy("details.maxplayers", bgg.games.dummy, sep=".")
   ,dummy("details.playingtime", bgg.games.dummy, sep=".")
   ,dummy("details.minage", bgg.games.dummy, sep=".")
+  ,dummy("stats.weight.factor", bgg.games.dummy, sep=".")
 )
-
 
 bgg.games.matrix <- as.matrix(select(bgg.games.dummy, 
                                      starts_with("details.minplayers."),
@@ -253,7 +256,8 @@ bgg.games.matrix <- as.matrix(select(bgg.games.dummy,
                                      starts_with("details.playingtime."),
                                      starts_with("details.minage."),
                                      starts_with("attributes.boardgamecategory"),
-                                     #starts_with("attributes.boardgamemechanic"),
+                                     starts_with("stats.weight.factor"),
+                                     starts_with("attributes.boardgamemechanic"),
                                      -one_of("attributes.boardgamecategory.Memory")
                                      ,-one_of("attributes.boardgamemechanic.DiceRolling")
                                      )
