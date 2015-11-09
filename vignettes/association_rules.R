@@ -5,6 +5,7 @@ if(! "dplyr" %in% installed.packages()) install.packages("dplyr", depend = TRUE)
 if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2", depend = TRUE)
 if(! "arules" %in% installed.packages()) install.packages("arules", depend = TRUE)
 if(! "cluster" %in% installed.packages()) install.packages("cluster", depend = TRUE)
+if(! "ggdendro" %in% installed.packages()) install.packages("ggdendtro", depend = TRUE)
 
 if(! "arulesViz" %in% installed.packages()) install.packages("arulesViz", depend = TRUE)
 
@@ -13,6 +14,7 @@ require(dplyr)
 require(ggplot2)
 require(arulesViz)
 require(cluster)
+require(ggdendro)
 
 require(bggAnalysis)
 
@@ -44,7 +46,7 @@ ggplot(data.frame(category=names(bgg.category.freq), count=bgg.category.freq) %>
   geom_bar(stat="identity", fill="deeppink", alpha=.2, col="red") +
   geom_text(aes(reorder(category, -count), count, label=paste((round(count,3)*100), "%", sep="")), angle=90, hjust=-.1)+
   ylab("Frequency in Games") + xlab("Category") +
-  theme(axis.text.x = element_text(angle = 90)) +
+  theme(axis.text.x = element_text(angle = 90, size=11), axis.text.y = element_text(size=11)) +
   ylim(0,.22)
 
 
@@ -66,7 +68,7 @@ ggplot(data.frame(category=names(bgg.mechanic.freq), count=bgg.mechanic.freq) %>
   geom_text(aes(reorder(category, -count), count, label=paste((round(count,3)*100), "%", sep="")), angle=90, hjust=-.1)+
   ylab("Frequency in Games") +
   xlab("Game Mechanic") +
-  theme(axis.text.x = element_text(angle = 90)) +
+  theme(axis.text.x = element_text(angle = 90, size=11), axis.text.y = element_text(size=11)) +
   ylim(0,.22)
 
 #####################
@@ -81,20 +83,20 @@ bgg.cross.plot <- data.frame(item=names(c(bgg.mechanic.freq, bgg.category.freq))
   group_by(item) %>% summarize(count=sum(count))
 bgg.cross.plot$type <- as.factor(ifelse(bgg.cross.plot$item %in% names(bgg.category.freq==TRUE), ifelse(bgg.cross.plot$item == "Memory", "Both", "Category"), "Mechanic"))
 
-
-
 ggplot(bgg.cross.plot %>% arrange(desc(count)) %>% filter(count>.01),
        aes(reorder(item, -count), count, fill=type))+
   geom_bar(stat="identity", alpha=.4) +
   geom_text(aes(reorder(item, -count), count, label=paste((round(count,3)*100), "%", sep="")), angle=90, hjust=-.1)+
   ylab("Frequency in Games") +
   xlab("Mechanics & Categories") +
-  theme(axis.text.x = element_text(angle = 90)) +
+  theme(axis.text.x = element_text(angle = 90, size=11), axis.text.y = element_text(size=11)) +
   ylim(0,.22)
 
 
 ###########################
-#     APRIORI             #
+#         APRIORI         #
+# ----------------------- #
+#        Mechanics        #
 ###########################
 mechanic.rules <- apriori(bgg.mechanic.transactions,
                  parameter = list(minlen=2, supp=0.001),
@@ -120,4 +122,103 @@ plot(hclust(mechanics.dis), cex=1)
 mechanics.clustering <- pam(mechanics.dis, k = 8)
 plot(mechanics.clustering)
 
-mechanics.allLabels <- predict(bgg.mechanic.transactions[mechanics.clustering$medoids], bgg.mechanic.transactions, method = "Jaccard")
+###########################
+#         APRIORI         #
+# ----------------------- #
+#       Categories        #
+###########################
+category.rules <- apriori(bgg.category.transactions,
+                          parameter = list(minlen=2, supp=0.001),
+                          #appearance = list(rhs=c("Survived=No", "Survived=Yes"), default="lhs"),
+                          control = list(verbose=TRUE))
+
+category.rules <- sort(category.rules, by="lift")
+
+# find redundant rules
+category.subset.matrix <- is.subset(category.rules, category.rules)
+category.subset.matrix[lower.tri(category.subset.matrix, diag=T)] <- NA
+# remove redundant rules
+category.rules.pruned <- category.rules[!(colSums(category.subset.matrix, na.rm=T) >= 1)]
+
+inspect(category.rules.pruned)
+plot(category.rules.pruned, method="graph", control=list(type="items"))
+
+
+categories.dis <- dissimilarity(bgg.category.transactions[,itemFrequency(bgg.category.transactions)>0.01], method = "phi", which="items")
+categories.dis[is.na(categories.dis)] <- 1
+plot(hclust(categories.dis), cex=1)
+
+categories.clustering <- pam(categories.dis, k = 8)
+plot(categories.clustering)
+
+###########################
+#         APRIORI         #
+# ----------------------- #
+#          Cross          #
+###########################
+cross.unbalanced.rules <- apriori(bgg.cross.transactions,
+                          parameter = list(minlen=2, supp=0.001),
+                          #appearance = list(rhs=c("Survived=No", "Survived=Yes"), default="lhs"),
+                          control = list(verbose=TRUE))
+
+cross.unbalanced.rules <- sort(cross.unbalanced.rules, by="lift")
+
+# find redundant rules
+cross.unbalanced.subset.matrix <- is.subset(cross.unbalanced.rules, cross.unbalanced.rules)
+cross.unbalanced.subset.matrix[lower.tri(cross.unbalanced.subset.matrix, diag=T)] <- NA
+# remove redundant rules
+cross.unbalanced.rules.pruned <- cross.unbalanced.rules[!(colSums(cross.unbalanced.subset.matrix, na.rm=T) >= 1)]
+
+cross.unbalanced.dis <- dissimilarity(bgg.cross.transactions[,itemFrequency(bgg.cross.transactions)>0.01], method = "phi", which="items")
+cross.unbalanced.dis[is.na(cross.unbalanced.dis)] <- 1
+
+plot(hclust(cross.unbalanced.dis), cex=1)
+
+cross.unbalanced.dend <- dendro_data(hclust(cross.unbalanced.dis), type="rectangle")
+
+png(file="./tmp/cross.similarity.color.png", height = 1200, width=760)
+ggplot() + 
+  geom_segment(data=segment(cross.unbalanced.dend), aes(x=x, y=y, xend=xend, yend=yend)) + 
+  geom_text(data=(label(cross.unbalanced.dend) %>% mutate(color=(ifelse(label %in% names(bgg.category.freq), "Category", "Mechanic")))), aes(x=x, y=y, label=label, hjust=0, color=color), size=4) +
+  coord_flip() + scale_y_reverse(expand=c(0.2, 0)) +
+  ggtitle(expression(atop("Games Similarities", atop(italic("Using Categories and Mechanics"))))) +
+  theme_dendro() +
+  theme(legend.position="top")
+dev.off()
+
+# Balanced
+cross.balanced.rules <- apriori(bgg.cross.transactions,
+                                  parameter = list(minlen=2, supp=0.001),
+                                  appearance = list(rhs=names(bgg.mechanic.freq), default="lhs"),
+                                  control = list(verbose=TRUE))
+
+cross.balanced.rules <- sort(cross.balanced.rules, by="lift")
+
+# find redundant rules
+cross.balanced.subset.matrix <- is.subset(cross.balanced.rules, cross.balanced.rules)
+cross.balanced.subset.matrix[lower.tri(cross.balanced.subset.matrix, diag=T)] <- NA
+# remove redundant rules
+cross.balanced.rules.pruned <- cross.balanced.rules[!(colSums(cross.balanced.subset.matrix, na.rm=T) >= 1)]
+
+inspect(cross.balanced.rules.pruned)
+
+# We must remove "Dice" from game categories if we're going to cross analyzis as Pr(DiceRolling|Dice) =~1
+
+
+# Backwarded analysis is much more interesting...
+cross.balanced.rules2 <- apriori(bgg.cross.transactions,
+                                parameter = list(minlen=2, supp=0.001),
+                                appearance = list(lhs=names(bgg.mechanic.freq), default="rhs"),
+                                control = list(verbose=TRUE))
+
+cross.balanced.rules2 <- sort(cross.balanced.rules2, by="lift")
+
+# find redundant rules
+cross.balanced.subset.matrix2 <- is.subset(cross.balanced.rules2, cross.balanced.rules2)
+cross.balanced.subset.matrix2[lower.tri(cross.balanced.subset.matrix2, diag=T)] <- NA
+# remove redundant rules
+cross.balanced.rules.pruned2 <- cross.balanced.rules2[!(colSums(cross.balanced.subset.matrix2, na.rm=T) >= 1)]
+
+inspect(cross.balanced.rules.pruned2)
+plot(cross.balanced.rules.pruned2, method="graph", control=list(type="items"))
+
