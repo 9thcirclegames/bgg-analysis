@@ -1,16 +1,17 @@
 ################
 # REQS         #
 ################
-if(! "dplyr" %in% installed.packages()) install.packages("dplyr", depend = TRUE)
-if(! "ggplot2" %in% installed.packages()) install.packages("ggplot2", depend = TRUE)
-if(! "GGally" %in% installed.packages()) install.packages("GGally", depend = TRUE)
-if(! "wesanderson" %in% installed.packages()) install.packages("wesanderson", depend = TRUE)
+if(! require(dplyr)) install.packages("dplyr", depend = TRUE)
+if(! require(ggplot2)) install.packages("ggplot2", depend = TRUE)
+if(! require(GGally)) install.packages("GGally", depend = TRUE)
+if(! require(wesanderson)) install.packages("wesanderson", depend = TRUE)
+if(! require(plyr)) install.packages("plyr", depend = TRUE)
 
-require(dplyr)
-require(ggplot2)
-require(GGally)
-require(wesanderson)
-require(plyr)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(wesanderson)
+library(plyr)
 
 data("BoardGames")
 
