@@ -17,6 +17,7 @@
 #'
 #' @importFrom splitstackshape cSplit_e
 #' @importFrom dplyr select "%>%"
+#' @importFrom plyr round_any
 #'
 #' @export
 bgg.prepare.data <- function(bgg.dataset = BoardGames){
@@ -40,11 +41,9 @@ bgg.prepare.data <- function(bgg.dataset = BoardGames){
                -contains("stats.rank.subtype.videogame")
   )
 
-  # Zero value in yearpublished column is a missing, so I convert to NA
+  # Zero value in some columna are missing, so I convert to NA
   bgg.dataset[which(as.numeric(bgg.dataset$details.yearpublished)==0),]$details.yearpublished <- NA
-
-  # Same for minage, where we're going to put to NA if it's > than 25, too
-  bgg.dataset[which(bgg.dataset$details.minage==0 | bgg.dataset$details.minage > 25),]$details.minage <- NA
+  bgg.dataset[which(as.numeric(bgg.dataset$stats.average)==0),]$stats.average <- NA
 
   # I'm going to filter out games that were released before 1959 or not yet released
   # We're going to loose only 5% of the dataset
@@ -55,6 +54,16 @@ bgg.prepare.data <- function(bgg.dataset = BoardGames){
     (as.numeric(details.yearpublished) >= 1959) |
       is.na(details.yearpublished)
   )
+
+  # Some useful discretizations
+  bgg.dataset$stats.weight.factor <- as.factor(round_any(bgg.dataset$stats.averageweight, 1))
+  bgg.dataset$details.playingtime <- round_any(bgg.dataset$details.playingtime, 15)
+
+  bgg.dataset$details.playingtime <- as.factor(ifelse(bgg.dataset$details.playingtime >= 240, "240+", as.character(bgg.dataset$details.playingtime)))
+  bgg.dataset$details.minplayers <- as.factor(ifelse(bgg.dataset$details.minplayers >= 8, "8+", as.character(bgg.dataset$details.minplayers)))
+  bgg.dataset$details.maxplayers <- as.factor(ifelse(bgg.dataset$details.maxplayers >= 15, "15+", as.character(bgg.dataset$details.maxplayers)))
+  bgg.dataset$details.mainage <- as.factor(ifelse(bgg.dataset$details.minage >= 21, "21+", as.character(bgg.dataset$details.minage)))
+
 
   return(bgg.dataset)
 

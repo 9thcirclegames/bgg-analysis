@@ -1,17 +1,12 @@
 ################
 # REQS         #
 ################
-if(! require(dplyr)) install.packages("dplyr", depend = TRUE)
-if(! require(ggplot2)) install.packages("ggplot2", depend = TRUE)
-if(! require(GGally)) install.packages("GGally", depend = TRUE)
-if(! require(wesanderson)) install.packages("wesanderson", depend = TRUE)
-if(! require(plyr)) install.packages("plyr", depend = TRUE)
+lapply(c("dplyr", "ggplot2", "GGally", "plyr"), function(pkg){
+  if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
+  library(pkg, character.only = TRUE)
+})
 
-library(dplyr)
-library(ggplot2)
-library(GGally)
-library(wesanderson)
-library(plyr)
+require(bggAnalysis)
 
 data("BoardGames")
 
@@ -99,7 +94,7 @@ ggplot(bgg.useful, aes(x = stats.average)) +
 
 # Splitting by year class
 # There is a strong positive shift in average ratings among the last decade
-ggplot(bgg.useful %>% 
+ggplot(bgg.useful %>%
          mutate(year.discrete=as.factor(round_any(as.numeric(details.yearpublished), 5))) %>%
          filter(as.numeric(details.yearpublished) >=1980 & as.numeric(details.yearpublished) < 2015)
        , aes(year.discrete, stats.average, fill=year.discrete)) +
@@ -118,7 +113,7 @@ ggplot(bgg.useful, aes(x = stats.average, colour=polls.language_dependence)) +
   geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black") +
   scale_fill_manual(values=wes_palette(name="Darjeeling"))
 
-ggplot(bgg.useful %>% 
+ggplot(bgg.useful %>%
          mutate(year.discrete=as.factor(signif(as.numeric(details.yearpublished), 3))) %>%
          filter(as.numeric(details.yearpublished) >=1980 & as.numeric(details.yearpublished) < 2015)
        , aes(year.discrete, stats.average, fill=polls.language_dependence)) +
@@ -139,7 +134,7 @@ ggplot(bgg.useful %>%
   geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
 
 # Mutual effects between mechanics and categories
-ggplot(bgg.useful %>% 
+ggplot(bgg.useful %>%
          mutate(attributes.top.categories=ifelse(game.id %in% bgg.top.categories$game.id, attributes.boardgamecategory, "Other Category")) %>%
          mutate(attributes.top.mechanics=ifelse(game.id %in% bgg.top.mechanics$game.id, attributes.boardgamemechanic, "Other Mechanic"))
        ,
