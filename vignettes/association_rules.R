@@ -1,7 +1,7 @@
 ################
 # REQS         #
 ################
-lapply(c("dplyr", "ggplot2", "arules", "cluster", "dummies", "arulesViz", "RColorBrewer"), function(pkg){
+lapply(c("dplyr", "ggplot2", "arules", "cluster", "dummies", "arulesViz", "RColorBrewer", "plyr"), function(pkg){
   if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
   library(pkg, character.only = TRUE)
 })
@@ -26,9 +26,9 @@ minimum.freq <- .01
 #########################################
 # Prepare Data Sets                     #
 #########################################
-bgg.useful.arules <- bgg.prepare.data(BoardGames) %>%
+bgg.useful.arules <- BoardGames %>%
   filter(is.na(details.yearpublished) | details.yearpublished <= 2015) %>%
-  filter(game.type == "boardgame")
+  filter(game.type == "boardgame") %>% bgg.prepare.data()
 
 rownames(bgg.useful.arules) <- make.names(bgg.useful.arules$details.name, unique=TRUE)
 
@@ -38,10 +38,10 @@ bgg.useful.dummy$stats.average.factor <- discretize(bgg.useful.dummy$stats.avera
 
 bgg.useful.dummy <- cbind(
   bgg.useful.dummy
-  ,dummy("details.minplayers", bgg.useful.dummy, sep="=")
-  ,dummy("details.maxplayers", bgg.useful.dummy, sep="=")
-  ,dummy("details.playingtime", bgg.useful.dummy, sep="=")
-  ,dummy("details.minage", bgg.useful.dummy, sep="=")
+  ,dummy("details.minplayers.factor", bgg.useful.dummy, sep="=")
+  ,dummy("details.maxplayers.factor", bgg.useful.dummy, sep="=")
+  ,dummy("details.playingtime.factor", bgg.useful.dummy, sep="=")
+  ,dummy("details.minage.factor", bgg.useful.dummy, sep="=")
   ,dummy("stats.weight.factor", bgg.useful.dummy, sep="=")
   ,dummy("stats.average.factor", bgg.useful.dummy, sep="=")
   ,dummy("polls.language.dependence", bgg.useful.dummy, sep="=")
@@ -98,32 +98,36 @@ bgg.mechanics.analysis$attribute.plot
 #############
 
 bgg.cross.data <-  bgg.useful.dummy %>% filter(stats.average > 0) %>% select(
-  #starts_with("details.minplayers="),
-  #starts_with("details.maxplayers="),
-  #starts_with("details.playingtime="),
-  #starts_with("details.minage="),
+  starts_with("details.minplayers.factor="),
+  starts_with("details.maxplayers.factor="),
+  starts_with("details.playingtime.factor="),
+  starts_with("details.minage.factor="),
   starts_with("attributes.boardgamecategory"),
   starts_with("stats.weight.factor="),
-  #starts_with("polls.language_dependency="),
-  #starts_with("attributes.boardgamemechanic"),
-  starts_with("stats.average.factor="),
-  -one_of("attributes.boardgamecategory.Memory", "attributes.boardgamecategory.Dice")
+  starts_with("polls.language_dependency="),
+  starts_with("attributes.boardgamemechanic"),
+  #starts_with("stats.average.factor="),
+  -one_of("attributes.boardgamecategory.Memory",
+          "attributes.boardgamecategory.Dice",
+          "stats.weight.factor=0",
+          "details.maxplayers.factor=0",
+          "details.minage.factor=0")
 )
 
 bgg.cross.analysis <- bgg.discrete.attribute.analysis(
  bgg.cross.data,
-  apriori.parameters = list(minlen = 2, supp = minimum.support),
+  apriori.parameters = list(minlen = 1, supp = minimum.support),
   apriori.appearance = list(
-    #rhs=gsub("attributes.boardgamecategory.", "", colnames(bgg.cross.data)[which(grepl("^attributes.boardgamecategory", colnames(bgg.cross.data)))]),
-    rhs=colnames(bgg.cross.data)[which(grepl("^stats.average.factor", colnames(bgg.cross.data)))],
+    rhs=gsub("attributes.boardgamecategory.", "", colnames(bgg.cross.data)[which(grepl("^attributes.boardgamecategory", colnames(bgg.cross.data)))]),
+    #☺rhs=colnames(bgg.cross.data)[which(grepl("^stats.average.factor", colnames(bgg.cross.data)))],
     default="lhs"
     ),
   minimum.freq = minimum.freq,
   brewer.palette = brewer.palette.top)
 
 # Inspect the mined rules
-inspect(sort(bgg.cross.analysis$apriori.rules, by="lift"))
-[plot(bgg.cross.analysis$apriori.rules, method="graph", control=list(type="items"))
+inspect(sort(bgg.cross.analysis$apriori.rules, by="lift")[1:100])
+plot(bgg.cross.analysis$apriori.rules, method="graph", control=list(type="items"))
 
 plot(bgg.cross.analysis$attribute.dend)
 
@@ -131,32 +135,14 @@ bgg.cross.analysis$attribute.plot
 
 # ---------------- Frequent Itemsets --------------------
 
-bgg.frequent.data <- select(
-  bgg.useful.dummy,
-  starts_with("details.minplayers="),
-  #starts_with("details.maxplayers="),
-  starts_with("details.playingtime="),
-  starts_with("details.minage="),
-  starts_with("attributes.boardgamecategory"),
-  starts_with("stats.weight.factor="),
-  starts_with("polls.language_dependency="),
-  starts_with("attributes.boardgamemechanic"),
-  -one_of("attributes.boardgamecategory.Memory"),
-  -one_of("attributes.boardgamecategory.Dice")
-)
-
 bgg.frequent.analysis <- bgg.discrete.attribute.analysis(
-  bgg.frequent.data,
-  apriori.parameters = list(minlen = 3, supp = 0.01,  target="frequent itemsets"),
-  apriori.appearance = list(none = c("details.minplayers=2",
-                                     "details.minplayers=4",
-                                     "stats.weight.factor=0",
-                                     "details.playingtime=0",
-                                     "details.minage=NA"), default="both"),
+  bgg.cross.data,
+  apriori.parameters = list(minlen = 4, supp = 0.01,  target="frequent itemsets"),
+  apriori.appearance = list(),
   minimum.freq,
   brewer.palette = brewer.palette.top)
 
-inspect(sort(bgg.frequent.analysis$apriori.rules, by="support"))
+inspect(sort(bgg.frequent.analysis$apriori.rules, by="support")[1:100])
 plot(bgg.frequent.analysis$apriori.rules, method="graph", control=list(type="items"))
 
 plot(bgg.frequent.analysis$attribute.dend)
@@ -176,14 +162,18 @@ bgg.cross.analysis$attribute.plot
 top.games.dend <- (function(){
 
   bgg.topn.matrix <- as.matrix(select(bgg.topn.dummy
-                                      ,starts_with("details.minplayers.")
-                                      ,starts_with("details.maxplayers.")
-                                      ,starts_with("details.playingtime.")
-                                      ,starts_with("details.minage.")
+                                      ,starts_with("details.minplayers.factor.")
+                                      ,starts_with("details.maxplayers.factor.")
+                                      ,starts_with("details.playingtime.factor,")
+                                      ,starts_with("details.minage.factor.")
                                       ,starts_with("attributes.boardgamecategory")
                                       ,starts_with("stats.weight.factor.")
                                       ,starts_with("attributes.boardgamemechanic")
-                                      ,-one_of("attributes.boardgamecategory.Memory")
+                                      ,-one_of("attributes.boardgamecategory.Memory",
+                                               "attributes.boardgamecategory.Dice",
+                                               "stats.weight.factor=0",
+                                               "details.maxplayers.factor=0",
+                                               "details.minage.factor=0")
   )
   )
 

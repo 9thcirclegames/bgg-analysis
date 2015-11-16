@@ -59,10 +59,10 @@ bgg.prepare.data <- function(bgg.dataset = BoardGames){
   bgg.dataset$stats.weight.factor <- as.factor(round_any(bgg.dataset$stats.averageweight, 1))
   bgg.dataset$details.playingtime <- round_any(bgg.dataset$details.playingtime, 15)
 
-  bgg.dataset$details.playingtime <- as.factor(ifelse(bgg.dataset$details.playingtime >= 240, "240+", as.character(bgg.dataset$details.playingtime)))
-  bgg.dataset$details.minplayers <- as.factor(ifelse(bgg.dataset$details.minplayers >= 8, "8+", as.character(bgg.dataset$details.minplayers)))
-  bgg.dataset$details.maxplayers <- as.factor(ifelse(bgg.dataset$details.maxplayers >= 15, "15+", as.character(bgg.dataset$details.maxplayers)))
-  bgg.dataset$details.mainage <- as.factor(ifelse(bgg.dataset$details.minage >= 21, "21+", as.character(bgg.dataset$details.minage)))
+  bgg.dataset$details.playingtime.factor <- as.factor(ifelse(bgg.dataset$details.playingtime >= 240, "240+", as.character(bgg.dataset$details.playingtime)))
+  bgg.dataset$details.minplayers.factor <- as.factor(ifelse(bgg.dataset$details.minplayers >= 8, "8+", as.character(bgg.dataset$details.minplayers)))
+  bgg.dataset$details.maxplayers.factor <- as.factor(ifelse(bgg.dataset$details.maxplayers >= 15, "15+", as.character(bgg.dataset$details.maxplayers)))
+  bgg.dataset$details.minage.factor <- as.factor(ifelse(bgg.dataset$details.minage >= 21, "21+", as.character(bgg.dataset$details.minage)))
 
 
   return(bgg.dataset)

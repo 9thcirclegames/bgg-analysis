@@ -54,6 +54,4 @@ bgg.discrete.attribute.analysis <- function(bgg.useful.dummy,
 
   return(list(data=bgg.category.data, attribute.plot=bgg.categories.plot, attribute.dend=bgg.categories.dend, apriori.rules=category.rules.pruned))
 
-
-
 }
