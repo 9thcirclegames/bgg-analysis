@@ -1,5 +1,5 @@
 # What makes a game a _good_ game?
-This package provides a skeleton and a set of data related to Board Games. This should be intended as a playing sandbox to you to analyze data about tabletop gaming and to undestand what a game should have to be a successful game.
+This package provides a skeleton and a set of data related to Board Games. This should be intended as a playing sandbox to you to analyze data about tabletop gaming and to undestand what makes a game a successful game.
 
 Endless questions could arise while designing/promoting a board games. For ex:
 
