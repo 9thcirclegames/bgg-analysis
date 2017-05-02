@@ -11,6 +11,7 @@ bgg.get <- function(ids,
                       videos=FALSE,
                       version=TRUE),
                     parsers = list(),
+                    verbose = TRUE,
                     .progress = create_progress_bar()){
 
   id.pagination.define <- 80
@@ -47,7 +48,7 @@ bgg.get <- function(ids,
 
   else {
 
-    game.collection <- bgg.cache(ids = id.v, parameters = parameters)
+    game.collection <- bgg.cache(ids = id.v, parameters = parameters, verbose = verbose)
 
     game.data <- do.call(data.frame, list(lapply(seq_along(parsers), function(y, n, i) {
       games.snap <- do.call(y[[i]], list(game.collection))
