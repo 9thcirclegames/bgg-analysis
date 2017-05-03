@@ -21,7 +21,7 @@ cache-knitr/
 *.Rproj
 .Rproj.user
 .Rhistory
-.RData
+*.RData
 .Rapp.history
 
 # Example code in package build process:
