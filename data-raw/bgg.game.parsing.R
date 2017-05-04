@@ -12,6 +12,21 @@ source("./data-raw/parse.meta.details.R")
 source("./data-raw/parse.polls.R")
 source("./data-raw/parse.statistics.R")
 
+###################
+# Parsers Enqueuing
+# -----------------
+#
+# Here you can set a list of parser functions.
+#
+# Each chunk of data crawled from BoardGameGeek will be
+# send to those functions and results are column-merged together
+#
+# You can drop elements from this list to improve speed if you don't
+# need it.You can code your parser and enqueue them 
+# if you need some custom transormations
+#
+# Package document explains how to build your own parsers.
+#
 parsers = list(game=parse.meta.details,
                details=parse.main.details,
                attributes=parse.attributes,
@@ -50,6 +65,8 @@ games.id <- as.character(do.call(rbind, lapply(strsplit(as.character(games.sitem
 
 # Removing invalid entries
 games.id <- games.id[which(games.id != "189330")]
+games.id <- games.id[which(games.id != "224814")]
+games.id <- games.id[which(games.id != "226165")]
 
 bgg.complete <- bgg.get(games.id, parsers = parsers, .progress = create_progress_bar("text"))
 

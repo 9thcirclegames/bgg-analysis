@@ -33,7 +33,7 @@
 #' }
 #' }
 #'
-#' @format A data frame with 90404 rows and 144 variables
+#' @format A data frame with 90400 rows and 80 variables
 #' @docType data
 #' @keywords datasets
 #' @name BoardGames
