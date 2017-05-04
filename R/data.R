@@ -1,9 +1,9 @@
 #' BoardGameGeek dataset
 #'
-#' A dataset containing the attributes and the ratings for around 80,000 boardgames
+#' A dataset containing the attributes and the ratings for around 94,000 among board games and their expansions
 #' in a format suitable for data mining.\cr
 #' \cr
-#' The dataset was built using game data until October 2015.
+#' The dataset was built using game data until April 2017.
 #' 
 #' @section Content:
 #' Dataset columns are grouped in categories identified by colname prefixes and following this classification:
@@ -33,7 +33,7 @@
 #' }
 #' }
 #'
-#' @format A data frame with 79916 rows and 63 variables
+#' @format A data frame with 90404 rows and 144 variables
 #' @docType data
 #' @keywords datasets
 #' @name BoardGames

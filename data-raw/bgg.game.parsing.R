@@ -48,6 +48,9 @@ games.sitemap <- do.call(
 
 games.id <- as.character(do.call(rbind, lapply(strsplit(as.character(games.sitemap$loc), "/"), function(x) { x[5] })))
 
+# Removing invalid entries
+games.id <- games.id[which(games.id != "189330")]
+
 bgg.complete <- bgg.get(games.id, parsers = parsers, .progress = create_progress_bar("text"))
 
 # Drop poll votes
