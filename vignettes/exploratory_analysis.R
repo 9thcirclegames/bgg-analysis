@@ -1,7 +1,7 @@
 ################
 # REQS         #
 ################
-lapply(c("dplyr", "ggplot2", "GGally", "plyr"), function(pkg){
+lapply(c("dplyr", "ggplot2", "GGally", "plyr", "wesanderson"), function(pkg){
   if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
   library(pkg, character.only = TRUE)
 })
@@ -14,18 +14,16 @@ BoardGames <- bgg.prepare.data(BoardGames)
 #########################################
 # PREFILTERING                          #
 #########################################
-bgg.useful <- BoardGames %>% filter(is.na(details.yearpublished) | details.yearpublished <= 2015) %>% filter(stats.usersrated >= 25, game.type == "boardgame")
-BoardGames.test <- BoardGames %>% filter(details.yearpublished > 2015) %>% filter(game.type == "boardgame")
-
-
+bgg.useful <- BoardGames %>% filter(is.na(details.yearpublished) | details.yearpublished <= 2016) %>% filter(stats.usersrated >= 25, game.type == "boardgame")
+BoardGames.test <- BoardGames %>% filter(details.yearpublished > 2016) %>% filter(game.type == "boardgame")
 
 # summarize by year
 boardgames.by.years <- BoardGames %>%
   mutate(details.yearpublished=as.numeric(details.yearpublished)) %>%
   filter(!is.na(details.yearpublished)) %>%
-  filter(details.yearpublished <= 2015) %>%
+  filter(details.yearpublished <= 2016) %>%
   group_by(details.yearpublished) %>%
-  summarise(count = n())
+  dplyr::summarise(count = n())
 
 # we got a 7700 missing and 1q=1994, Median=2006
 ggplot(boardgames.by.years,aes(details.yearpublished,count)) +
@@ -37,24 +35,21 @@ ggplot(boardgames.by.years,aes(details.yearpublished,count)) +
 
 # Stimiamo la % di missing degli attributi
 col.nulls <- colMeans(is.na(BoardGames))
-col.nulls.percent <- percent(colMeans(is.na(BoardGames)))
+col.nulls.percent <- scales::percent(colMeans(is.na(BoardGames)))
 names(col.nulls.percent) <- names(col.nulls)
-
-which(col.nulls)
-
 
 # Cumulative Freq-plot of year (median in grey -> 2006)
 ggplot(BoardGames, aes(as.numeric(details.yearpublished))) +
-  stat_ecdf(geom="smooth", lwd=1, col="red") +
+  stat_ecdf(geom="step", lwd=.5, col="red") +
   ggtitle("Cumulative freq-plot of Release Year") +
   geom_vline(xintercept=median(as.numeric(BoardGames$details.yearpublished), na.rm=TRUE), color = 'grey')
 
-# Cumulative Freq-plot of user ratings. (80% has less than 25 ratings)
+# Cumulative Freq-plot of user ratings. (80% has less than 35 ratings)
 # We really don't wont the outliers to pollute the plot
 quantile(BoardGames$stats.usersrated, seq(0, 1, 0.05), na.rm = TRUE)
 
 ggplot(BoardGames, aes(stats.usersrated)) +
-  stat_ecdf(geom="step", lwd=1, col="red") +
+  stat_ecdf(geom="step", lwd=.5, col="blue") +
   ggtitle("Cumulative freq-plot of User Ratings") +
   xlim(0, quantile(BoardGames$stats.usersrated, seq(0, 1, 0.05), na.rm = TRUE)['95%'])
 
@@ -62,7 +57,7 @@ ggplot(BoardGames, aes(stats.usersrated)) +
 quantile(bgg.useful$stats.average, seq(0, 1, 0.05), na.rm = TRUE)
 
 ggplot(bgg.useful, aes(stats.usersrated)) +
-  stat_ecdf(geom="step", lwd=1, col="red") +
+  stat_ecdf(geom="step", lwd=.5, col="red") +
   ggtitle("Cumulative freq-plot of User Ratings") +
   xlim(c(0, quantile(bgg.useful$stats.usersrated, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
 
@@ -71,13 +66,13 @@ ggplot(bgg.useful, aes(stats.usersrated)) +
 #########################################
 how.many.tops <- 5
 
-bgg.categories.freq <- (bgg.useful %>% group_by(attributes.boardgamecategory) %>% summarize(count=n()))
+bgg.categories.freq <- (bgg.useful %>% group_by(attributes.boardgamecategory) %>% dplyr::summarize(count=n()))
 bgg.categories.freq <- bgg.categories.freq[order(-bgg.categories.freq[,2]),]
 bgg.top.categories <- subset(bgg.useful, attributes.boardgamecategory %in% head(bgg.categories.freq$attributes.boardgamecategory, how.many.tops))
 bgg.worst.categories <- subset(bgg.useful, !(attributes.boardgamecategory %in% head(bgg.categories.freq$attributes.boardgamecategory, how.many.tops)))
 
 
-bgg.mechanics.freq <- (bgg.useful %>% group_by(attributes.boardgamemechanic) %>% summarize(count=n()))
+bgg.mechanics.freq <- (bgg.useful %>% group_by(attributes.boardgamemechanic) %>% dplyr::summarize(count=n()))
 bgg.mechanics.freq <- bgg.mechanics.freq[order(-bgg.mechanics.freq[,2]),]
 bgg.top.mechanics <- subset(bgg.useful, attributes.boardgamemechanic %in% head(bgg.mechanics.freq$attributes.boardgamemechanic, how.many.tops))
 bgg.worst.mechanics <- subset(bgg.useful, !(attributes.boardgamemechanic %in% head(bgg.mechanics.freq$attributes.boardgamemechanic, how.many.tops)))
@@ -270,7 +265,7 @@ ylim(0, 5)
 ggplot(bgg.useful, aes(x=stats.trading, y=stats.average, color=attributes.boardgamecategory)) +
   geom_point(alpha=.2, col="deeppink") +
   geom_smooth(data=subset(bgg.useful,
-                          attributes.boardgamecategory %in% head(bgg.category.freq[ order(-bgg.category.freq[,2]), ]$attributes.boardgamecategory,10)), aes(x=stats.trading, y=stats.average, color=attributes.boardgamecategory), method="lm", se=FALSE) +
+                          attributes.boardgamecategory %in% head(bgg.categories.freq[ order(-bgg.categories.freq[,2]), ]$attributes.boardgamecategory,10)), aes(x=stats.trading, y=stats.average, color=attributes.boardgamecategory), method="lm", se=FALSE) +
   xlim(c(0, quantile(bgg.useful$stats.trading, seq(0, 1, 0.05), na.rm = TRUE)['95%']))
 
 # regressione rating e playingtime

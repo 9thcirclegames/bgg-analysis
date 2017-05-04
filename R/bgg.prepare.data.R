@@ -23,22 +23,27 @@
 bgg.prepare.data <- function(bgg.dataset = BoardGames){
 
   # I really don't want videogames in my DB
-  videogames.id <- unique(c(
-    which(!is.na(bgg.dataset$stats.rank.family.amiga.pos)),
-    which(!is.na(bgg.dataset$stats.rank.family.arcade.pos)),
-    which(!is.na(bgg.dataset$stats.rank.family.atarist.pos)),
-    which(!is.na(bgg.dataset$stats.rank.family.commodore64.pos))
-  )
-  )
-
+  videogames.id <- (function(x){
+    if(NROW(which(colnames(BoardGames)=="stats.family.amiga.pos"))>0){
+      return(
+        unique(c(
+          which(!is.na(bgg.dataset$stats.family.amiga.pos)),
+          which(!is.na(bgg.dataset$stats.family.arcade.pos)),
+          which(!is.na(bgg.dataset$stats.family.atarist.pos)),
+          which(!is.na(bgg.dataset$stats.family.commodore64.pos)))
+        )
+      ) }
+    else return(NULL)
+  })(bgg.dataset)
+  
   bgg.dataset <- bgg.dataset[-videogames.id,]
 
   bgg.dataset <- select(bgg.dataset, -one_of("details.image", "details.thumbnail", "details.description", "stats.median"))
-  bgg.dataset <- select(bgg.dataset, -contains("stats.rank.family.amiga"),
-               -contains("stats.rank.family.arcade"),
-               -contains("stats.rank.family.atarist"),
-               -contains("stats.rank.family.commodore64"),
-               -contains("stats.rank.subtype.videogame")
+  bgg.dataset <- select(bgg.dataset, -contains("stats.family.amiga"),
+               -contains("stats.family.arcade"),
+               -contains("stats.family.atarist"),
+               -contains("stats.family.commodore64"),
+               -contains("stats.subtype.videogame")
   )
 
   # Zero value in some columna are missing, so I convert to NA

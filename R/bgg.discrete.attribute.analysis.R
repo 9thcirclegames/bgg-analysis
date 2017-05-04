@@ -49,9 +49,10 @@ bgg.discrete.attribute.analysis <- function(bgg.useful.dummy,
   # Find and remove redundant rules
   category.subset.matrix <- is.subset(category.rules, category.rules)
   category.subset.matrix[lower.tri(category.subset.matrix, diag=T)] <- NA
-  category.rules.pruned <- category.rules[!(colSums(category.subset.matrix, na.rm=T) >= 1)]
+  print(category.subset.matrix)
+  #category.rules.pruned <- category.rules[!(colSums(category.subset.matrix, na.rm=T) >= 1)]
 
 
-  return(list(data=bgg.category.data, attribute.plot=bgg.categories.plot, attribute.dend=bgg.categories.dend, apriori.rules=category.rules.pruned))
+  return(list(data=bgg.category.data, attribute.plot=bgg.categories.plot, attribute.dend=bgg.categories.dend, apriori.rules=category.rules))
 
 }

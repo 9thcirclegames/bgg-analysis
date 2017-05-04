@@ -22,7 +22,7 @@ brewer.palette.top <- "Spectral"
 # Prepare Data Sets                     #
 #########################################
 bgg.useful.predictions <- BoardGames %>%
-  filter(is.na(details.yearpublished) | details.yearpublished <= 2015) %>%
+  filter(is.na(details.yearpublished) | details.yearpublished <= 2017) %>%
   filter(game.type == "boardgame") %>%
   bgg.prepare.data() %>%
   filter(stats.usersrated >= 50)

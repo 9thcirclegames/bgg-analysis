@@ -202,7 +202,7 @@ top.games.dend <- (function(){
 
 })()
 
-pdf(file="./tmp/games.similarity.huge.pdf", width=45, height=15)
+pdf(file="tmp/games.similarity.huge.pdf", width=45, height=15)
 plot(top.games.dend)
 dev.off()
 
