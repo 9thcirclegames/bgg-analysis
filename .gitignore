@@ -22,6 +22,8 @@ cache-knitr/
 .Rproj.user
 .Rhistory
 *.RData
+*.sqlite
+*.Rd
 .Rapp.history
 
 # Example code in package build process:
@@ -30,7 +32,7 @@ cache-knitr/
 # Previewing README
 README.html
 
-# Temporary and Test Data
+# Temporary, man and Test Data
 _test
 tmp/
 inst/doc
