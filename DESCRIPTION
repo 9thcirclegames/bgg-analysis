@@ -6,9 +6,9 @@ Description: An attempt to perform a data analysis from user-generated content f
 Authors@R: person("Gabriele", "Baldassarre", role = c("aut", "cre"), email = "gabriele@gabrielebaldassarre.com")
 Date: 2015-10-21
 URL: https://gabrielebaldassarre.com
-BugReports: https://github.com/theclue/bgg-analysis/issues
+BugReports: https://github.com/9thcirclegames/bgg-analysis/issues
 Depends: R (>= 3.0)
-Imports: plyr, dplyr, splitstackshape, ggplot2, arules
+Imports: plyr, dplyr, splitstackshape, ggplot2, arules, dendextend, DBI, data.table
 Suggests: testthat, knitr, rjson, RCurl, XML, xml2
 License: MIT + file LICENSE
 NeedsCompilation: no
