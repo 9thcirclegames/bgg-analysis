@@ -1,0 +1,230 @@
+---
+title: "BoardGame Geek Exploratory Analysis pt.1"
+author: "Gabriele Baldassarre"
+date: "May 10, 2017"
+output: 
+  html_document:
+  toc: true
+---
+
+This is the first approach in exploring the BoardGameGeek dataset. I'm working on trying to
+answer the question "What constituted the perfect Board Game?". This is a very broad
+question and cannot be answered without a deep knowledge of the data itself.
+
+In this kernel I'm going to show the exploratory analysis I performed on the data and
+my conclusions.
+
+Although it's not possible to cover all the possibile features of the dataset, I'm going to
+go as deeper I can on the most peculiar elements.
+
+* [Preprocessing the Data](#preprocessing-the-data)
+* [Year Distribution of Games](#year-distribution-of-games)
+* [Examining the Rating Distribution](#examining-the-rating-distribution)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE)
+```
+
+```{r, message=FALSE, warnings=FALSE, echo=FALSE, results='hide'}
+######################
+# REQUIREMENTS       #
+######################
+lapply(c("plyr", "ggplot2", "GGally", "dplyr", "wesanderson", "bggAnalysis"), function(pkg){
+  if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
+  library(pkg, character.only = TRUE)
+})
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+#######################
+# END OF REQS SECTION #
+#######################
+
+BoardGames <- data(BoardGames)
+BoardGames <- bgg.prepare.data(BoardGames)
+```
+
+# Preprocessing the Data
+
+Before starting, I'm going to  filter out all those boardgames that has less than 5 user ratings and all the expansions.
+This will help me cleaning the dataset, as games with less than 5 ratings are probably:
+
+* Unpublished Games
+* Homebrew or hobbyst projects
+* Adult variants of popular games
+* In general, forgettable games which is safe to ignore.
+
+Aside that, I'm going to wipe out boardgames expansions too, as they follow their own dynamic evolutions. For example,
+they tend to inherit the rating from the father, although they're good or not.
+
+Since we're going to study the behaviours of __board games__ it's safe to remove expansions. too.
+
+```{r, message=FALSE, warnings=FALSE}
+bgg.useful <- BoardGames %>% 
+filter(!is.na(details.yearpublished)) %>% 
+filter(details.yearpublished <= 2016) %>%
+filter(details.yearpublished >= 1960) %>%
+filter(stats.usersrated >= 5, game.type == "boardgame")
+
+```
+
+At the end of the day, we've a nice, good looking dataset made of `r NROW(bgg.useful)` official,
+certified games to play with.
+
+# Year Distribution of Games {#year}
+In the Board Game industries, things have started to be interesting because of the
+"Eurogame Revolution", where young and talented designers from Europe, and Germany in particular,
+introduced new design patterns which highly improved the quality of the games so far. Historians says it happened aroun the turn of the century.
+
+I'm going to check if it's true exploring the year and rating distributions of the data.
+
+First of all, let's see how many games are published per year.
+
+```{r, message=FALSE, warnings=FALSE}
+# summarize by year
+boardgames.by.years <- bgg.useful %>%
+  mutate(details.yearpublished=as.numeric(details.yearpublished)) %>%
+  filter(!is.na(details.yearpublished)) %>%
+  filter(details.yearpublished <= 2016) %>%
+  group_by(details.yearpublished) %>%
+  dplyr::summarise(count = n())
+
+# we got a 7700 missing and 1q=1994, Median=2006
+ggplot(boardgames.by.years,aes(details.yearpublished,count)) +
+  geom_line(col="red", lwd=1) +
+  ggtitle(paste('Board Games released by Year, ', min(boardgames.by.years$details.yearpublished),'-', max(boardgames.by.years$details.yearpublished))) +
+  xlab('Year') +
+  ylab("Number of Games") +
+  ylim(c(0,max(boardgames.by.years$count)))
+```
+
+This is somewhat expected: the number of game published per year radically __exploded__ 
+around the turn of the century! As a matter of facts, the median of the population is in 2006.
+
+This huge increase is significant? Can I safely remove all those ancient games from before the revolution
+from the population, thus better focusing my sample?
+
+To aestimate that, let's plot the cumulative frequency of games among time and check the median.
+
+```{r, message=FALSE, warnings=FALSE}
+# Cumulative Freq-plot of year (median in grey)
+ggplot(bgg.useful, aes(as.numeric(details.yearpublished))) +
+  stat_ecdf(geom="step", lwd=.5, col="red") +
+  ggtitle("Cumulative freq-plot of Release Year") +
+  xlab('Year') +
+  ylab("Cumulative Frequency of Games") +
+  geom_vline(xintercept=median(as.numeric(BoardGames$details.yearpublished), na.rm=TRUE), color = 'grey')
+  ```
+
+Median is on `r median(as.numeric(BoardGames$details.yearpublished), na.rm=TRUE)`, which suggest that
+_recent_ (ie. during-post eurogame revolution) games significally describe the dataset. We're definitively
+on the spike, now.
+
+# Examining the Rating Distribution
+Now, let's go deeper about the _quality_ of those games.
+First of all, we're going to check the normality of the average ratings for games in the population.
+
+```{r, message=FALSE, warnings=FALSE}
+# Rating Distribution
+ggplot(bgg.useful, aes(x = stats.average)) +
+  geom_histogram(aes(y = ..density..), binwidth = .1, fill="red", alpha=.2, col="deeppink") + geom_density(col="red", lwd=1) +
+  xlim(0,10) +
+  xlab('Avg. Rating') +
+  geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+```
+
+I think there're no doubts that rating follow the normal distribution :) It's nothing
+unsurprising, here, but it's always cool to see a so good looking bell-shaped distribution, nowdays!
+
+Anyway, a better look for the quality of games among times is when we summarize in groups of 5 years each:
+
+```{r, message=FALSE, warnings=FALSE}
+# Splitting by year class
+ggplot(bgg.useful %>%
+         mutate(year.discrete=as.factor(round_any(as.numeric(details.yearpublished), 5))) %>%
+         filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016)
+       , aes(year.discrete, stats.average, fill=year.discrete)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Avg. Rating") + xlab("Year Groups") +
+  geom_hline(yintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+```
+
+Perhaps in the 2000s the _number_ of published boardgames suddenly increased, but it was in the 2010s only
+that higher quality products started to emerge.
+
+## Popularity and Ratings
+BoardGameGeek has the reputation of being a very competent community.
+To check this, let's see if there is a correlation between game ratings and game __popularity__.
+
+The idea is to proxy the popularity using the numbers of users who __rated__ the games and the
+numbers of users who __own__ the games.
+
+```{r, message=FALSE, warnings=FALSE}
+plot.ratings <- ggplot(bgg.useful, aes(log(stats.usersrated), stats.average)) +
+  geom_point(alpha=.2, lwd=.2, col="deeppink") +
+  geom_smooth(col="blue", lwd=1) +
+  xlab("Number of Ratings [Log]") + 
+  ylab("Avg. Rating")
+  
+plot.owned <- ggplot(bgg.useful, aes(log(stats.owned), stats.average)) +
+  geom_point(alpha=.2, lwd=.2, col="orange") +
+  geom_smooth(col="blue", lwd=1) +
+  xlab("Number of Owners [Log]") + 
+  ylab("Avg. Rating")
+  
+multiplot(plot.ratings, plot.owned, cols=2)
+```
+
+Clearly there is a positive correlation between both the dependants. People in the
+community tend to prefer more rated
+
+
+
+
+
+  
