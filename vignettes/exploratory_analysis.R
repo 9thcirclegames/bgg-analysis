@@ -1,10 +1,12 @@
 ################
 # REQS         #
 ################
-lapply(c("dplyr", "ggplot2", "GGally", "plyr", "wesanderson"), function(pkg){
-  if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
-  library(pkg, character.only = TRUE)
-})
+if(FALSE %in% 
+  do.call(c,lapply(c("dplyr", "ggplot2", "GGally", "plyr", "wesanderson"), function(pkg){
+    if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
+    library(pkg, character.only = TRUE, logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+  }))
+) stop("Cannot resolve some dependencies; exiting now...")
 
 require(bggAnalysis)
 
@@ -14,8 +16,11 @@ BoardGames <- bgg.prepare.data(BoardGames)
 #########################################
 # PREFILTERING                          #
 #########################################
-bgg.useful <- BoardGames %>% filter(is.na(details.yearpublished) | details.yearpublished <= 2016) %>% filter(stats.usersrated >= 25, game.type == "boardgame")
-BoardGames.test <- BoardGames %>% filter(details.yearpublished > 2016) %>% filter(game.type == "boardgame")
+bgg.useful <- BoardGames %>% 
+  filter(!is.na(details.yearpublished)) %>% 
+  filter(details.yearpublished <= 2016) %>%
+  filter(details.yearpublished >= 1960) %>%
+  filter(stats.usersrated >= 5, game.type == "boardgame")
 
 # summarize by year
 boardgames.by.years <- BoardGames %>%
