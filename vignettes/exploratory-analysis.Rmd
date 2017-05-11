@@ -1,0 +1,425 @@
+---
+title: "BoardGame Geek Exploratory Analysis pt.1"
+author: "Gabriele Baldassarre"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    code_folding: hide
+    theme: journal
+    toc: yes
+    toc_depth: 4
+    toc_float: no
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+vignette: >
+  %\VignetteIndexEntry{Basic Exploration of BGG DataSet}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+# Introduction
+This is the first approach in exploring the BoardGameGeek dataset. I'm working on trying to
+answer the question _What constituted the perfect Board Game?_ This is a very broad
+question and cannot be answered without a deep knowledge of the data itself.
+
+In this kernel I'm going to show the exploratory analysis I performed on the data and
+my conclusions.
+
+Although it's not possible to cover all the possibile features of the dataset, I'm going to
+go as deeper I can on the most peculiar elements.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r, echo=FALSE, results='hide'}
+######################
+# REQUIREMENTS       #
+######################
+if(FALSE %in% 
+  do.call(c,lapply(c("plyr", "dplyr", "ggplot2", "GGally", "scales", "wesanderson"), function(pkg){
+    if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
+    library(pkg, character.only = TRUE, logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+  }))
+) stop("Cannot resolve some dependencies; exiting now...")
+
+if(!require("bggAnalysis")) {
+  devtools::install_github("pkg, depend = TRUE")
+  if(!library("bggAnalysis", logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)) 
+    stop("Cannot install bggAnalysis from GitHub; exiting now...")
+}
+
+source("https://gist.githubusercontent.com/theclue/a4741899431b06941c1f529d6aac4387/raw/f69d9b5a420e2c4707acad69f31c6e6a3c15e559/ggplot-multiplot.R")
+
+#######################
+# END OF REQS SECTION #
+#######################
+
+data("BoardGames")
+BoardGames <- bgg.prepare.data(BoardGames)
+```
+
+# Preprocessing the Data
+Before starting, I'm going to filter out all those boardgames that has less than 5 user ratings and all the expansions.
+This will help me cleaning the dataset, as games with less than 5 ratings are probably:
+
+* Unpublished Games
+* Homebrew or hobbyst projects
+* Adult variants of popular games
+* In general, forgettable games which is safe to ignore.
+
+Aside that, I'm going to wipe out boardgames _expansions_ too, as they follow their own dynamic evolutions. For example,
+they tend to inherit the rating from the father, although they're good or not by themselves.
+
+Since we're going to study the behaviours of __board games__ only, it's safe to remove expansions. too.
+
+```{r}
+bgg.useful <- BoardGames %>% 
+filter(!is.na(details.yearpublished)) %>% 
+filter(details.yearpublished <= 2016) %>%
+filter(details.yearpublished >= 1960) %>%
+filter(stats.usersrated >= 5, game.type == "boardgame")
+```
+
+At the end of the day, we've a nice, good looking dataset made of `r NROW(bgg.useful)` official,
+certified games to play with.
+
+# Year Distribution of Games {#year}
+In the Board Game industries, things have started to be interesting because of the
+"Eurogame Revolution", where young and talented designers from Europe, and Germany in particular,
+introduced new design patterns which highly improved the quality of the games so far. Historians says it happened aroun the turn of the century.
+
+I'm going to check if it's true exploring the year and rating distributions of the data.
+
+First of all, let's see how many games are published per year.
+
+```{r}
+# summarize by year
+boardgames.by.years <- bgg.useful %>%
+  mutate(details.yearpublished=as.numeric(details.yearpublished)) %>%
+  filter(!is.na(details.yearpublished)) %>%
+  filter(details.yearpublished <= 2016) %>%
+  group_by(details.yearpublished) %>%
+  dplyr::summarise(count = n())
+
+# we got a 7700 missing and 1q=1994, Median=2006
+ggplot(boardgames.by.years,aes(details.yearpublished,count)) +
+  geom_line(col="red", lwd=1) +
+  ggtitle(paste('Board Games released by Year, ', min(boardgames.by.years$details.yearpublished),'-', max(boardgames.by.years$details.yearpublished))) +
+  xlab('Year') +
+  ylab("Number of Games") +
+  ylim(c(0,max(boardgames.by.years$count)))
+```
+
+This is somewhat expected: the number of game published per year radically __exploded__ 
+around the turn of the century!
+
+This huge increase is significant? Can I safely remove all those ancient games from before the revolution
+from the population, thus better focusing my sample?
+
+To aestimate that, let's plot the cumulative frequency of games among time and check the median.
+
+```{r}
+# Cumulative Freq-plot of year (median in grey)
+ggplot(bgg.useful, aes(as.numeric(details.yearpublished))) +
+  stat_ecdf(geom="step", lwd=.5, col="red") +
+  ggtitle("Cumulative freq-plot of Release Year") +
+  xlab('Year') +
+  ylab("Cumulative Frequency of Games") +
+  geom_vline(xintercept=median(as.numeric(BoardGames$details.yearpublished), na.rm=TRUE), color = 'grey')
+```
+
+Median is on `r median(as.numeric(BoardGames$details.yearpublished), na.rm=TRUE)`, which suggest that
+_recent_ (ie. during-post eurogame revolution) games significally describe the dataset. We're definitively
+on the spike, now.
+
+# Examining the Rating Distribution
+Now, let's go deeper about the _quality_ of those games.
+First of all, we're going to check the normality of the average ratings for games in the population.
+
+```{r, message=FALSE, warning=FALSE}
+# Rating Distribution
+ggplot(bgg.useful, aes(x = stats.average)) +
+  geom_histogram(aes(y = ..density..), binwidth = .1, fill="red", alpha=.2, col="deeppink") + geom_density(col="red", lwd=1) +
+  xlim(0,10) +
+  xlab('Avg. Rating') +
+  geom_vline(xintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+```
+
+I think there're no doubts that rating follow the normal distribution :) This is
+unsurprising, but it's always cool to see a so good looking bell-shaped distribution, nowdays!
+
+Anyway, a better look for the quality of games among times is when we summarize in groups of 5 years each:
+
+```{r}
+# Splitting by year class
+ggplot(bgg.useful %>%
+         mutate(year.discrete=as.factor(round_any(as.numeric(details.yearpublished), 5))) %>%
+         filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016)
+       , aes(year.discrete, stats.average, fill=year.discrete)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Avg. Rating") + xlab("Year Groups") +
+  geom_hline(yintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+```
+
+Perhaps in the 2000s the _number_ of published boardgames suddenly increased, but it was in the 2010s only
+that higher quality products started to emerge.
+
+## Popularity and Ratings
+BoardGameGeek has the reputation of being a very competent community.
+To check this, let's see if there is a correlation between game rating and game __popularity__.
+
+The idea is to proxy the popularity using the numbers of users who _rated_ the games and the
+numbers of users who _own_ the games.
+
+I've filtered all those games with a number of ratings less than 10: no matter what they say,
+those games are  not popular!
+
+```{r}
+multiplot(
+  ggplot(bgg.useful
+         %>% filter(stats.usersrated >= 10)
+         , aes(stats.average, stats.usersrated)) +
+    geom_point(alpha=.2, lwd=.2, col="deeppink") +
+    geom_smooth(col="blue", lwd=.7) +
+    ylab("Number of Ratings") + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                              labels = trans_format("log10", math_format(10^.x)),
+                                              limits = c(10,10^5)) +
+    xlab("Avg. Rating"),
+  ggplot(bgg.useful
+         %>% filter(stats.usersrated >= 10)
+         , aes(stats.average, stats.usersrated)) +
+    geom_point(alpha=.2, lwd=.2, col="orange") +
+    geom_smooth(col="blue", lwd=.7) +
+    ylab("Number of Owners") + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                             labels = trans_format("log10", math_format(10^.x)),
+                                             limits = c(10,10^5)) +
+    xlab("Avg. Rating"), 
+  cols=2)
+```
+
+Clearly there is a positive correlation between both the dependants. People in the
+community tend to prefer more high-rated games. Much probably, correlation __is__ causation here:
+highly rated games are the most popular and the best sellers (well, at least for the BoardGameGeek users!)
+
+Anyway, these plots arise a couple of interesting questions about how well the product is _sellable_.
+I'm going to explore this using the marketplace metrics the dataset has.
+
+# Marketplace Metrics
+The analysis above surfaced the idea of a relation between the rating and the popularity
+of a game. I want to go further and try to understand the __buying belief__ for a given game, too.
+
+I would start exploring the metrics which are related to the marketplace section of
+BoardGameGeek: for each game, we have the number of users _owning_, _wishing_, _wanting_ and _trading_ a game.
+
+Are those metrics correlated and how they relate to the average rating?
+
+```{r}
+corr.palette <- wes_palette(name="Darjeeling", 3, type = "continuous")
+
+bgg.marketplace.data <- bgg.useful[,c("stats.average", 
+                            "stats.usersrated",
+                            "stats.owned", 
+                            "stats.wishing", 
+                            "stats.wanting", 
+                            "stats.trading",
+                            "details.yearpublished")] %>% filter(stats.usersrated >= 100)
+
+ggcorr(data = bgg.marketplace.data[,-which(names(bgg.marketplace.data) == "details.yearpublished")],
+       label = TRUE,
+       geom = "tile",
+       low = corr.palette[1],
+       mid = corr.palette[2],
+       high = corr.palette[3],
+       midpoint=0) + 
+  ggtitle("Correlations between Marketplace Metrics")
+```
+
+Again, I've wiped-out all those forgettable games with less than 100 Ratings.
+
+We can see a strong positive correlation for almost all the marketplace metrics here.
+This is expecially true between the Number of Ratings (_stats.average_) and the Owners (_stats.owned_)
+and for people that put the game in the wishlist (_stats.wishing_) and those who are actively searching for
+buying it on the BGG Marketplace (_stats.wanting_).
+
+As expected, the correlation between the latters, which carries a positive __buying belief__, are weakly
+correlated to those are selling the game on the Marketplace (_stats.trading_). But wait...is this still
+a positive correlation! This is really a counter-intuitive behaviour.
+
+The problem here is that the Marketplace metrics are biased by the popularity of a game itself: the more
+a game is popular, the more __all__ the marketplace metrics goes up.
+
+To normalize the measurements, I'm going to add a derivate metric, __stats.trading.ratio__, defined as the
+ratio between the Number of Traders and the total Number of Owners. Then, I'm going to check the correlation
+matrix again...
+
+```{r}
+ggcorr(data = bgg.marketplace.data[,-which(names(bgg.marketplace.data) == "details.yearpublished")]
+                %>% mutate(stats.trading.ratio=stats.trading/stats.owned)
+                %>% filter(stats.trading.ratio <= .2),
+       label = TRUE,
+       geom = "tile",
+       low = corr.palette[1],
+       mid = corr.palette[2],
+       high = corr.palette[3],
+       midpoint=0) + 
+  ggtitle("Correlations between Marketplace Metrics")
+```
+
+...and the negative coefficient will start to pop up.
+
+It looks like that the Game Rating influenced the
+number of copies sold (_stats.owned_) __AND__ the interest in the long-term (_stats.trading.ratio_). This
+are something that deserve more attention, so let's study the distributions of these three variables.
+
+Game Designers usually don't like Traders because for any guy selling his copy of the Game there is a lost opportunity
+to sell a game expansions, so it's important to undestand..._what influence the Traders?_
+
+```{r}
+multiplot(
+ggplot(bgg.marketplace.data
+         %>% mutate(stats.trading.ratio=stats.trading/stats.owned)
+         %>% filter(stats.trading.ratio <= .2)
+       , aes(stats.average, stats.trading.ratio)) +
+  geom_point(alpha=.2, lwd=.2, col="deeppink") +
+  geom_smooth(col="blue", lwd=.7) +
+  ylab("% of Traders among Owners") + scale_y_continuous(labels=percent) +
+  xlab("Avg. Rating") +
+  ggtitle("Rating Influence")
+  ,
+ggplot(bgg.marketplace.data
+         %>% mutate(stats.trading.ratio=stats.trading/stats.owned)
+         %>% filter(stats.trading.ratio <= .2)
+       , aes((stats.owned), stats.trading.ratio)) +
+  geom_point(alpha=.2, lwd=.2, col="orange") +
+  geom_smooth(col="blue", lwd=.7) +
+  ylab("% of Traders among Owners") + scale_y_continuous(labels=percent) +
+  xlab("Owners") + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                       labels = trans_format("log10", math_format(10^.x))) +
+  ggtitle("Popularity Influence")
+  , cols=2)
+```
+
+(I've wiped out all those games which have a Trading Ratio more than 20%: these are outliers as
+they are beyond the 90% percentile.)
+
+I like those plots because they give me some kind of thresolds. While nothing can be said about the
+latter, I'm quite confident in stating that a game with an Average Rating > 6 has more probability of lying
+in the perfect geeks' skaffold for a long time.
+
+Does a game lie in a safe zone even if its Rating is low, but supposing it's a popular game?
+
+Probably not, but let's check:
+
+```{r, message=FALSE, warnings=FALSE}
+ggplot(bgg.marketplace.data
+       %>% mutate(stats.trading.ratio=stats.trading/stats.owned)
+       %>% mutate(attribute.popularity=ifelse(stats.owned<10^3, "Low Popularity (<1000 Owners)", "High Popularity (>= 1000 Owners)"))
+       %>% filter(stats.trading.ratio <= .2)
+       , aes(stats.average, stats.trading.ratio, colour=attribute.popularity)) +
+  geom_point(alpha=.2, lwd=.2) +
+  geom_smooth(col="blue", lwd=.7, fullrange=TRUE) +
+  ylab("% of Traders among Owners") + scale_y_continuous(labels=percent) +
+  xlab("Avg. Rating") +
+  facet_grid(. ~ attribute.popularity) +
+  ggtitle("Rating Influence on Long-term Interest among Popularity Classes") +
+  theme(legend.position="none")
+```
+
+To be popular on BGG, a game __must__ be highly rated. No way!
+
+Of course, older a game, higher the chances for it of being sold...
+```{r}
+boardgames.traders.by.years <- (((bgg.useful[,c("details.yearpublished", "stats.average", "stats.usersrated","stats.owned", "stats.wishing", "stats.wanting", "stats.trading")]) %>%
+  mutate(details.yearpublished=as.numeric(details.yearpublished)) %>%
+  mutate(stats.trading.ratio=stats.trading/stats.owned) %>%
+  filter(!is.na(details.yearpublished)) %>%
+  filter(details.yearpublished <= 2016) %>%
+  #filter(stats.trading.ratio <= .2) %>%
+  filter(stats.owned >= 100) %>%
+  group_by(details.yearpublished) %>%
+  dplyr::summarise(stats.trading = sum(stats.trading), stats.owned = sum(stats.owned)))  %>% mutate(stats.trading.ratio=stats.trading/stats.owned))
+
+# Splitting by year class
+ggplot(boardgames.traders.by.years
+         %>% mutate(year.discrete=as.factor(round_any(as.numeric(details.yearpublished), 10)))
+         %>% filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) < 2015)
+       , aes(year.discrete, stats.trading.ratio, fill=year.discrete)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("% of Traders among Owners") + scale_y_continuous(labels=percent) +
+  xlab("Decades") +
+  geom_hline(yintercept=mean(boardgames.traders.by.years$stats.trading.ratio, na.rm=TRUE), color="black")
+```
+
+...but this cannot be true for _ancient_ games (ie. 1960s, 1970s): they are probably sold
+because they are _boring_ (ie. Average Rating is low).
+
+To assess this, let's check if a game suffer an interest drop-off with time.
+```{r}
+multiplot(
+ggplot(bgg.marketplace.data
+       %>% mutate(stats.trading.ratio=stats.trading/stats.owned)
+       %>% mutate(details.age=(2017 - details.yearpublished))
+       %>% filter(stats.trading.ratio <= .2)
+       , aes(details.age, stats.trading.ratio, col="orange")) +
+  geom_point(alpha=.2, lwd=.2) +
+  geom_smooth(col="blue", lwd=.5) +
+  ylab("% of Traders among Owners") + scale_y_continuous(labels=percent) +
+  xlab(NULL) + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                       labels = trans_format("log10", math_format(10^.x))) +
+  ggtitle("Interest Drop-off with time, dropdown to various Rating Classes") +
+  theme(legend.position="none")
+,
+ggplot(bgg.marketplace.data
+       %>% mutate(stats.trading.ratio=stats.trading/stats.owned)
+       %>% mutate(details.age=(2017 - details.yearpublished))
+       %>% mutate(stats.rating.class=factor(ifelse(stats.average <= 4, "Low Rated", ifelse(stats.average <= 6, "Mid Rated", "Hi Rated")), levels=c("Low Rated", "Mid Rated", "Hi Rated")))
+       %>% filter(stats.trading.ratio <= .2)
+       , aes(details.age, stats.trading.ratio, col=stats.rating.class)) +
+  geom_point(alpha=.2, lwd=.2) +
+  geom_smooth(col="blue", lwd=.5) +
+  ylab("% of Traders among Owners") + scale_y_continuous(labels=percent) +
+  xlab("Years from First Publication") + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                       labels = trans_format("log10", math_format(10^.x))) +
+  facet_grid(. ~ stats.rating.class) +
+  theme(legend.position="none")
+)
+```
+
+Although with different slopes between Mid and Hi Rated games, games tend to suffer an interest loss not earlier than 10-15 years after the first publication.
+
+```{r}
+multiplot(
+ggplot(bgg.marketplace.data
+       %>% mutate(details.age=(2017 - details.yearpublished))
+       , aes(details.age, stats.wishing, col="orange")) +
+  geom_point(alpha=.2, lwd=.2) +
+  geom_smooth(col="blue", lwd=.5) +
+  ylab("Users Whishing") + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                       labels = trans_format("log10", math_format(10^.x))) +
+  xlab(NULL) + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                       labels = trans_format("log10", math_format(10^.x))) +
+  ggtitle("Wishing a Game, dropdown to various Rating Classes") +
+  theme(legend.position="none")
+,
+ggplot(bgg.marketplace.data
+       %>% mutate(details.age=(2017 - details.yearpublished))
+       %>% mutate(stats.rating.class=factor(ifelse(stats.average <= 4, "Low Rated", ifelse(stats.average <= 6, "Mid Rated", "Hi Rated")), levels=c("Low Rated", "Mid Rated", "Hi Rated")))
+       , aes(details.age, stats.wishing, col=stats.rating.class)) +
+  geom_point(alpha=.2, lwd=.2) +
+  geom_smooth(col="blue", lwd=.5) +
+  ylab("Users Whishing") + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                       labels = trans_format("log10", math_format(10^.x))) +
+  xlab("Years from First Publication") + scale_x_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                       labels = trans_format("log10", math_format(10^.x))) +
+  facet_grid(. ~ stats.rating.class) +
+  theme(legend.position="none")
+)
+```

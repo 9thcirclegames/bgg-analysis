@@ -10,6 +10,7 @@
 *.log
 *.out
 cache-knitr/
+*.html
 
 
 # backup files:

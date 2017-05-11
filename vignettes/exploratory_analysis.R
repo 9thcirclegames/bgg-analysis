@@ -2,16 +2,19 @@
 # REQS         #
 ################
 if(FALSE %in% 
-  do.call(c,lapply(c("dplyr", "ggplot2", "GGally", "plyr", "wesanderson"), function(pkg){
-    if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
-    library(pkg, character.only = TRUE, logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)
-  }))
+   do.call(c,lapply(c("plyr", "dplyr", "ggplot2", "GGally", "scales", "wesanderson"), function(pkg){
+     if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
+     library(pkg, character.only = TRUE, logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)
+   }))
 ) stop("Cannot resolve some dependencies; exiting now...")
 
-require(bggAnalysis)
+if(!require("bggAnalysis")) {
+  devtools::install_github("pkg, depend = TRUE")
+  if(!library("bggAnalysis", logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)) 
+    stop("Cannot install bggAnalysis from GitHub; exiting now...")
+}
 
 data("BoardGames")
-
 BoardGames <- bgg.prepare.data(BoardGames)
 #########################################
 # PREFILTERING                          #
