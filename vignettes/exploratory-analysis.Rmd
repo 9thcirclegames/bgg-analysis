@@ -59,9 +59,6 @@ source("https://gist.githubusercontent.com/theclue/a4741899431b06941c1f529d6aac4
 #######################
 # END OF REQS SECTION #
 #######################
-
-data("BoardGames")
-BoardGames <- bgg.prepare.data(BoardGames)
 ```
 
 # Preprocessing the Data
@@ -79,11 +76,19 @@ they tend to inherit the rating from the father, although they're good or not by
 Since we're going to study the behaviours of __board games__ only, it's safe to remove expansions. too.
 
 ```{r}
+corr.palette <- wes_palette(name="Darjeeling", 3, type = "continuous")
+
+data("BoardGames")
+
 bgg.useful <- BoardGames %>% 
+bgg.prepare.data() %>%
 filter(!is.na(details.yearpublished)) %>% 
 filter(details.yearpublished <= 2016) %>%
 filter(details.yearpublished >= 1960) %>%
 filter(stats.usersrated >= 5, game.type == "boardgame")
+
+rownames(bgg.useful) <- make.names(bgg.useful$details.name, unique=TRUE)
+
 ```
 
 At the end of the day, we've a nice, good looking dataset made of `r NROW(bgg.useful)` official,
@@ -165,11 +170,126 @@ ggplot(bgg.useful %>%
   geom_boxplot(alpha=.4) +
   theme_bw() +
   ylab("Avg. Rating") + xlab("Year Groups") +
-  geom_hline(yintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black")
+  geom_hline(yintercept=mean(bgg.useful$stats.average, na.rm=TRUE), color="black") +
+  theme(legend.position="none")
 ```
 
 Perhaps in the 2000s the _number_ of published boardgames suddenly increased, but it was in the 2010s only
 that higher quality products started to emerge.
+
+## Details and Ratings
+I'm going to study the _details_ variables, like playing time, average weight (difficulty), number
+of players, and the Rating: the idea here is to undestand if a particular detail could bring a game on top.
+
+Some of the _details_ columns are aestimations from the community, so I decided to filter games with
+less than 100 ratings. This would lend, I guess, to a less biased sample.
+
+Just for start, I'm going to perform a simple correlation plot.
+
+```{r}
+ggcorr(data = bgg.useful %>%
+  filter(stats.usersrated >= 100) %>%
+  select(starts_with("details"),
+         +stats.average,
+         +stats.averageweight,
+         -ends_with(".factor"),
+         -details.name,
+         -details.yearpublished)
+  ,
+       label = TRUE,
+       geom = "tile",
+       low = corr.palette[1],
+       mid = corr.palette[2],
+       high = corr.palette[3],
+       midpoint=0,
+       size = 2.5) + 
+  ggtitle("Correlations between Details Metrics")
+
+```
+
+There're not so many interesting relations here. Clearly, _playingtime_, _maxplayingtime_ and _minplayingtime_ are strongly related. I will probably drop two of three of them while training a regression or performing a PCA as they won't carry much variance to the dataset. Said that, it's business as usual here.
+
+Another slighlty relation is between the minimum age for playing the game and the difficulty of the game itself (_averageweight_). I was expecting that, as impegnative games are not usually suitable for children.
+
+Another empirical knowledge about Board Games says that, if we exclude Party Games, games that involves many players, tend to last longer. Surprisily enough, there's no correlation between _maxplayers_ and _maxplayingtime_. I'm going to analyze the root causes here while working on categories: my idea is that there're some two-players only games that unskew the distribution: the Historical WarGames (I will return on this later).
+
+Last but not least, the positive correlation between Ratings and Weight. Users seems to prefer though games.
+
+The BoardGameGeek community is perhaps be made by hardcore gamers?
+
+## This game is fu*in' hard!
+
+Ok, users in BGG prefer heavy games. But how many of those are in the database?
+
+```{r, message=FALSE, warning=FALSE}
+multiplot(
+ggplot(bgg.useful %>%
+         filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016) %>%
+         filter(stats.usersrated >= 100)
+       , aes(x = stats.weight.factor)) +
+  geom_histogram(binwidth=1, stat="count", fill="orange", alpha=.6, col="grey") +
+  xlab("Weight") + ylab("Number of Games")
+,
+ggplot(bgg.useful %>%
+         mutate(year.discrete=as.factor(round_any(as.numeric(details.yearpublished), 10))) %>%
+         filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016) %>%
+         filter(stats.usersrated >= 100)
+       , aes(year.discrete, stats.averageweight, fill=year.discrete)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Avg. Weight") + xlab("Year Groups") +
+  geom_hline(yintercept=mean(bgg.useful$stats.averageweight, na.rm=TRUE), color="black") +
+  theme(legend.position="none")
+, cols=2)
+```
+
+Clearly, the average weight is not so high as the users' preference would suggests instead: the most common games recorded in the database is definitively __simple__ (Weight = 2)!
+
+What happened during the 80s and the 90s? I'm going to chech this while digging on categories/mechanics (Historians say that was the golden era of Wargames. This would be an explanation indeed).
+
+Let's assess the quality and the popularity of those games, too...
+```{r}
+multiplot(
+ggplot(bgg.useful %>%
+         filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016) %>%
+         filter(stats.usersrated >= 100)
+       , aes(stats.weight.factor, stats.average, fill=stats.weight.factor)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Avg. Rating") +
+  xlab("Weights") +
+  geom_hline(yintercept=median(bgg.useful$stats.average, na.rm=TRUE), color="black") +
+  theme(legend.position="none")
+  , 
+ggplot(bgg.useful %>%
+       filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016)
+       %>% filter(stats.usersrated >= 100)
+       , aes(stats.averageweight, stats.average)) +
+  geom_point(alpha=.2, lwd=.2, col="deeppink") +
+  geom_smooth(col="blue", lwd=.7) +
+  ylab("Avg. Rating") +
+  xlab("Weight")
+, cols=2)
+```
+
+Really, they prefer those heavy bricks.
+
+But they buy them?
+```{r}
+ggplot(bgg.useful %>%
+         filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016) %>%
+         filter(stats.usersrated >= 100)
+       , aes(stats.weight.factor, stats.owned, fill=stats.weight.factor)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Owners") + scale_y_log10(breaks = trans_breaks("log10", function(x) 10^x),
+                                      labels = trans_format("log10", math_format(10^.x))
+                                      ) +
+  xlab("Weights") +
+  theme(legend.position="none")
+```
+
+Well...more or less... :)
 
 ## Popularity and Ratings
 BoardGameGeek has the reputation of being a very competent community.
@@ -179,7 +299,7 @@ The idea is to proxy the popularity using the numbers of users who _rated_ the g
 numbers of users who _own_ the games.
 
 I've filtered all those games with a number of ratings less than 10: no matter what they say,
-those games are  not popular!
+those games are not popular!
 
 ```{r}
 multiplot(
@@ -208,9 +328,6 @@ Clearly there is a positive correlation between both the dependants. People in t
 community tend to prefer more high-rated games. Much probably, correlation __is__ causation here:
 highly rated games are the most popular and the best sellers (well, at least for the BoardGameGeek users!)
 
-Anyway, these plots arise a couple of interesting questions about how well the product is _sellable_.
-I'm going to explore this using the marketplace metrics the dataset has.
-
 # Marketplace Metrics
 The analysis above surfaced the idea of a relation between the rating and the popularity
 of a game. I want to go further and try to understand the __buying belief__ for a given game, too.
@@ -221,8 +338,6 @@ BoardGameGeek: for each game, we have the number of users _owning_, _wishing_, _
 Are those metrics correlated and how they relate to the average rating?
 
 ```{r}
-corr.palette <- wes_palette(name="Darjeeling", 3, type = "continuous")
-
 bgg.marketplace.data <- bgg.useful[,c("stats.average", 
                             "stats.usersrated",
                             "stats.owned", 
