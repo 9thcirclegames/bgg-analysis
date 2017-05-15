@@ -4,20 +4,16 @@
 # KDevelop project files:
 *.kdev4
 .kdev4
-
 # LaTeX/knitr:
 *.aux
 *.log
 *.out
 cache-knitr/
 *.html
-
-
 # backup files:
 *~
 *.backup
 *.bak
-
 # R/RStudio files:
 *.Rproj
 .Rproj.user
@@ -26,13 +22,10 @@ cache-knitr/
 *.sqlite
 *.Rd
 .Rapp.history
-
 # Example code in package build process:
 *-Ex.R
-
 # Previewing README
 README.html
-
 # Temporary, man and Test Data
 _test
 tmp/
