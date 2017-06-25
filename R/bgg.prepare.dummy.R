@@ -13,6 +13,8 @@ bgg.prepare.dummy <- function(bgg.dataset){
 
   bgg.dataset.dummy <- cSplit_e(bgg.dataset, "attributes.boardgamecategory", type="character", fill=0, drop=TRUE)
   bgg.dataset.dummy <- cSplit_e(bgg.dataset.dummy, "attributes.boardgamemechanic", type="character", fill=0, drop=TRUE)
+  bgg.dataset.dummy <- cSplit_e(bgg.dataset.dummy, "attributes.boardgamefamily", type="character", fill=0, drop=TRUE)
+  bgg.dataset.dummy <- cSplit_e(bgg.dataset.dummy, "attributes.boardgameimplementation", type="character", fill=0, drop=TRUE)
 
   colnames(bgg.dataset.dummy) <- gsub(" ", "", colnames(bgg.dataset.dummy))
   colnames(bgg.dataset.dummy) <- gsub("/", "-", colnames(bgg.dataset.dummy))

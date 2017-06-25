@@ -42,7 +42,10 @@ knitr::opts_chunk$set(
 # REQUIREMENTS       #
 ######################
 if(FALSE %in% 
-  do.call(c,lapply(c("plyr", "dplyr", "ggplot2", "GGally", "scales", "wesanderson"), function(pkg){
+  do.call(c,lapply(c("tidyverse",
+                     "GGally",
+                     "scales", 
+                     "wesanderson"), function(pkg){
     if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
     library(pkg, character.only = TRUE, logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)
   }))
@@ -80,12 +83,16 @@ corr.palette <- wes_palette(name="Darjeeling", 3, type = "continuous")
 
 data("BoardGames")
 
-bgg.useful <- BoardGames %>% 
-bgg.prepare.data() %>%
-filter(!is.na(details.yearpublished)) %>% 
-filter(details.yearpublished <= 2016) %>%
-filter(details.yearpublished >= 1960) %>%
-filter(stats.usersrated >= 5, game.type == "boardgame")
+bgg.useful <- BoardGames %>%
+  bgg.prepare.data() %>%
+  filter(!is.na(details.yearpublished)) %>%
+  filter(details.yearpublished <= 2016) %>%
+  filter(details.yearpublished >= 1960) %>%
+  filter(stats.usersrated >= 5, game.type == "boardgame") %>%
+  mutate(stats.average.factor = discretize(stats.average,
+                                           method="frequency",
+                                           categories = 5, 
+                                           ordered = TRUE))
 
 rownames(bgg.useful) <- make.names(bgg.useful$details.name, unique=TRUE)
 

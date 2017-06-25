@@ -1,0 +1,235 @@
+---
+title: "Game Categories and Mechanics"
+author: "Gabriele Baldassarre"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    code_folding: hide
+    theme: journal
+    toc: yes
+    toc_depth: 4
+    toc_float: no
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+vignette: >
+  %\VignetteIndexEntry{Game Categories and Mechanics}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+# Introduction
+
+In this dataset I'm going to explore the Board Games Dataset among the various __categories__ and __mechanics__ of games. I'm searching for the real _milestones_ here and to understand if they are isolated cases or part of a general (improving) trend.
+
+Then, I'll try to craft a small association rules model, since co-existance of various categories in games is quite a common pattern, expecially in modern games.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r, echo=FALSE, results='hide'}
+######################
+# REQUIREMENTS       #
+######################
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load("tidyverse",
+                      "GGally",
+                      "scales",
+                      "wesanderson",
+                      "arules",
+                      "dendextend",
+                      "dummies",
+                      "RColorBrewer",
+                      "splitstackshape",
+                      "DT")
+
+if(!require("bggAnalysis")) {
+  devtools::install_github("pkg, depend = TRUE")
+  if(!library("bggAnalysis", logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)) 
+    stop("Cannot install bggAnalysis from GitHub; exiting now...")
+}
+
+source("https://gist.githubusercontent.com/theclue/a4741899431b06941c1f529d6aac4387/raw/f69d9b5a420e2c4707acad69f31c6e6a3c15e559/ggplot-multiplot.R")
+
+#' Decode dummy variables
+#'
+#' This function will create the dummy variables for some attributes (game category and game mechanic atm).
+#' It doesn't drop the original columns.
+#
+bgg.prepare.dummy <- function(bgg.dataset){
+
+  bgg.dataset.dummy <- cSplit_e(bgg.dataset, "attributes.boardgamecategory", type="character", fill=0, drop=TRUE)
+  bgg.dataset.dummy <- cSplit_e(bgg.dataset.dummy, "attributes.boardgamemechanic", type="character", fill=0, drop=TRUE)
+
+  colnames(bgg.dataset.dummy) <- gsub(" ", "", colnames(bgg.dataset.dummy))
+  colnames(bgg.dataset.dummy) <- gsub("/", "-", colnames(bgg.dataset.dummy))
+  colnames(bgg.dataset.dummy) <- gsub("_", ".", colnames(bgg.dataset.dummy))
+
+  return(bgg.dataset.dummy)
+}
+
+#######################
+# END OF REQS SECTION #
+#######################
+```
+
+# Preprocessing the Data
+Before starting, I'm going to filter out all those boardgames that has less than 5 user ratings and all the expansions.
+This will help me cleaning the dataset, as games with less than 5 ratings are probably:
+
+* Unpublished Games
+* Homebrew or hobbyst projects
+* Adult variants of popular games
+* In general, forgettable games which is safe to ignore.
+
+Since boardgame expansions tend to share the same categories and mechanics of the parent game, there's no variance expressed by them and they would add more noise to the sample, so I've removed them.
+
+About the publishing year, I've no interest in all those traditional games like Chess, Go and Tic-Tac-Toe, so I'm going to filter out all those games where the publishing date is unknown or is prior to 1960. This will wipe-out also those "classical" boardgames like Monopoly and Snakes and Ladder, but this is ok as they are not probably judged by their quality but by their historical value, instead.
+
+Then, I'm going to discretize the average rating in five balanced classes split by frequencies in a new factor variabla. I probably need to create an unbalanced factor class for ratings based upon perception (ie. terrible, medium, good, great, masterpiece...), but I'll do later.
+
+Finally, I'll use a simple function to create a set of dummy vars from mechanics and categories, which are comma-separated strings in the dataset.
+```{r}
+data("BoardGames")
+
+brewer.palette.categories <- "PiYG"
+brewer.palette.mechanics <- "RdBu"
+brewer.palette.top <- "Spectral"
+
+minimum.support <- .001
+minimum.freq <- .01
+minimum.games <- 200
+
+bgg.useful <- BoardGames %>% 
+  bgg.prepare.data() %>%
+  filter(!is.na(details.yearpublished)) %>% 
+  filter(details.yearpublished <= 2016) %>%
+  filter(details.yearpublished >= 1960) %>%
+  filter(stats.usersrated >= 5, game.type == "boardgame") %>%
+  mutate(stats.average.factor = discretize(stats.average,
+                                           method="frequency",
+                                           categories = 5, 
+                                           ordered = TRUE))
+
+rownames(bgg.useful) <- make.names(bgg.useful$details.name, unique=TRUE)
+
+bgg.dummy <- bgg.prepare.dummy(bgg.useful)
+
+bgg.dummy <- cbind(
+  bgg.dummy
+  ,dummy("details.minplayers.factor", bgg.dummy, sep="=")
+  ,dummy("details.maxplayers.factor", bgg.dummy, sep="=")
+  ,dummy("details.playingtime.factor", bgg.dummy, sep="=")
+  ,dummy("details.minage.factor", bgg.dummy, sep="=")
+  ,dummy("stats.weight.factor", bgg.dummy, sep="=")
+  ,dummy("stats.average.factor", bgg.dummy, sep="=")
+  ,dummy("polls.language.dependence", bgg.dummy, sep="=")
+)
+
+colnames(bgg.dummy) <- make.names(colnames(bgg.dummy))
+```
+
+# Category Analysis
+First of all I'm going to plot the occurrencies of the Top 50 categories in game. Since a game could have more than one category, I'll use the dataset with dummy vars I've created before.
+
+```{r}
+how.many.categories <- 10
+how.many.top.categories <- 30
+
+cat_columns <- colnames(bgg.dummy)[startsWith(colnames(bgg.dummy), "attributes.boardgamecategory.")]
+
+bgg.cat.year <- bgg.dummy %>%
+  select(details.yearpublished, stats.average, starts_with("attributes.boardgamecategory.")) %>%
+  bind_cols(., select_(., .dots = setNames(cat_columns, sprintf("count.%s", cat_columns)))) %>%
+  mutate_each(funs(. * stats.average), starts_with("attributes.boardgamecategory.")) %>%
+  select(-stats.average) %>%
+  group_by(details.yearpublished) %>%
+  summarise_each(funs(sum)) %>%
+  gather(boardgamecategory, value, -details.yearpublished) %>%
+  mutate(boardgamecategory = gsub("([a-z])([A-Z])",
+                                  "\\1 \\2",
+                                  gsub("attributes.boardgamecategory.", 
+                                       "",
+                                       boardgamecategory))
+  ) %>%
+  mutate(count=ifelse(startsWith(boardgamecategory, "count."), value, 0)) %>%
+  mutate(value=ifelse(!startsWith(boardgamecategory, "count."), value, 0)) %>%
+  mutate(boardgamecategory = gsub("count.", "", boardgamecategory)) %>%
+  mutate(boardgamecategory = gsub("\\.",
+                                  " ", boardgamecategory)) %>%
+  group_by(details.yearpublished, boardgamecategory) %>%
+  summarise_each(funs(sum)) %>%
+  filter(count > 0) %>%
+  mutate(weight = ifelse(value==0, NA, value/count)) %>%
+  select(-value)
+
+bgg.categories.top <- bgg.cat.year %>% 
+  group_by(boardgamecategory) %>%
+  summarise_at(vars(count), funs(sum)) %>%
+  mutate(percent.total = count / sum(count)) %>%
+  arrange(-count)
+
+ggplot(head(bgg.categories.top,40), aes(reorder(boardgamecategory, -percent.total), percent.total)) +
+  geom_bar(stat="identity", fill=brewer.pal(3, brewer.palette.categories)[1], alpha=.2, col=brewer.pal(3, brewer.palette.categories)[2]) +
+  geom_text(aes(reorder(boardgamecategory, -percent.total), label=percent(percent.total), percent.total), angle=90, size=3, hjust=-.1) +
+  ylab("Frequency in Games") + xlab("Categories") + scale_y_continuous(labels=percent, expand = c(.02, .01)) +
+  ggtitle(paste("Top", how.many.top.categories, "categories frequencies")) +
+  theme(axis.text.x = element_text(angle = 90, size=9), axis.text.y = element_text(size=9))
+```
+
+Categories distribution has a clear short-head, long-tail distribution. In facts, the Top `r how.many.categories` categories
+```{r echo = FALSE, results = 'asis'}
+head(bgg.categories.top, how.many.categories) %>% mutate(percent.total = percent(percent.total))
+```
+
+are present in the __`r (head(bgg.categories.top, how.many.categories) %>% summarise(percent.total = sum(percent.total)) %>% mutate(percent.total = percent(percent.total)))$percent.total`__ of all games.
+
+In another analysis, I've shown up that quality of games is improving over time. Here I want to check if this is true for all the categories so far. Did this improvement concentrate only on most common categories or even into the long tail?
+
+I split the categories rank in three segments of equal sizes.
+
+Here's the resulting dataset with the new discrete column _rank.segment_
+```{r}
+bgg.categories.rank <- bgg.categories.top %>% 
+  mutate(rank.segment = discretize(1:NROW(bgg.categories.top),
+                                   categories=3,
+                                   method="frequency"))
+datatable(bgg.categories.rank %>% mutate(percent.total = percent(percent.total)))
+```
+
+And here's faceted spaghetti plot where each grey line plot the avg. (unweighted) rating for a given category in the set. As we may see, the improve in quality is widely spreaded for all the categories so far, altough I see a wider dispersion for the baseline categories.
+
+```{r}
+
+
+ggplot(aes(x = details.yearpublished, y = weight), data = left_join(bgg.cat.year, bgg.categories.rank %>%
+          select(boardgamecategory, rank.segment), by = "boardgamecategory")) +
+  geom_line(aes(group = boardgamecategory), color = "gray", alpha=.2) +
+  geom_smooth(aes(group = 1), method = "loess" , size = 1, color = "orange", se = FALSE) +
+  ylab(paste("Avg. Rating", sep=" ")) +
+  xlab("Publishing Year") +
+  facet_grid(. ~ rank.segment) +
+  theme_bw()
+
+
+```
+
+Finally, it's time for some boxplots. The first one doesn't facet, as I want a static photography of all the games so far.
+
+```{r}
+ggplot(left_join(bgg.cat.year, bgg.categories.rank %>%
+          select(boardgamecategory, rank.segment), by = "boardgamecategory") %>%
+          filter(rank.segment == "[ 1,29)")
+       , aes(boardgamecategory, weight, fill=boardgamecategory)) +
+  geom_boxplot(alpha=.4) +
+  theme_bw() +
+  ylab("Rating") + xlab("Category") +
+  geom_hline(yintercept=mean(bgg.categories.rank$weight, na.rm=TRUE), color="black") +
+  theme(legend.position="none", axis.text.x = element_text(angle = 90, size=9)) +
+  ggtitle("Top 30 Categories Ratings")
+```

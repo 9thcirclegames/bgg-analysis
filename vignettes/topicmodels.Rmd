@@ -1,0 +1,458 @@
+---
+title: "Too many tags! Topic modeling game attributes on BoardGameGeek dataset"
+author: "Gabriele Baldassarre"
+date: '`r Sys.Date()`'
+output:
+  html_document:
+    code_folding: show
+    theme: journal
+    toc: yes
+    toc_depth: 4
+    toc_float: no
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+vignette: >
+  %\VignetteIndexEntry{Topic modeling game attributes of BoardGameGeek dataset}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+# Introduction
+BoardGameGeek dataset has several attributes which rapresent various kinds of game _tags_ that define, for example, categories, mechanics, implementations, families and so on. Multiple tags could be added for a given property, and tags are freeform by definition. Thus, at the end of the day, we end up having thousands of different tags on the data, atm, and most of them with very low frequency.
+
+At this stage, tags are not of any use to describe the data, and even not useful for classification or clustering.
+
+My idea is to classify the tags in _topics_, for better understanding the data and, last but not least, for dimensionality redution.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r requirements, echo=FALSE, results='hide'}
+######################
+# REQUIREMENTS       #
+######################
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load("tidyverse",
+               "plyr",
+               "splitstackshape",
+               "FactoMineR",
+               "scales",
+               "wesanderson",
+               "factoextra",
+               "dummies",
+               "RColorBrewer",
+               "devtools",
+               "topicmodels",
+               "tidytext",
+               "igraph",
+               "DT")
+
+# Watch out! To install topicmodels, gsl system library must be installed
+# macOS: brew install gsl
+# Ubuntu: sudo apt-get install gsl
+
+if(!require("bggAnalysis")) {
+  devtools::install_github("9thcirclegames/bgg-analysis")
+  if(!library("bggAnalysis", logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)) 
+    stop("Cannot install bggAnalysis from GitHub; exiting now...")
+}
+
+## Source useful functions on gist
+invisible(lapply(c("https://raw.githubusercontent.com/trinker/topicmodels_learning/master/functions/optimal_k.R",
+                 "https://gist.githubusercontent.com/theclue/a4741899431b06941c1f529d6aac4387/raw/f69d9b5a420e2c4707acad69f31c6e6a3c15e559/ggplot-multiplot.R") ,devtools::source_url))
+
+#######################
+# PARAMETERS         #
+#######################
+
+brewer.palette.topics <- "PiYG"
+brewer.palette.categories <- "PiYG"
+brewer.palette.mechanics <- "RdBu"
+
+how.many.to.show <- 20
+
+#######################
+# DATA LOADING        #
+#######################
+data("BoardGames")
+```
+
+# Preprocessing the Data
+Before divining into the topic modeling stage, data need some sanitation. First of all, I removed game expansions from the database, as they almost always share the same attributes of the main game, thus they won't add variance on the data, while hugely increase the computation time.
+
+Then, I decided to remove all those games which have received less than 5 ratings from the community. This will help me to wipe-out fan creations, unpublished games, vapourware and generally forgotten games. Not only, since tags in BoardGameGeek database are user-generated, less ratings mean less quality check by the community, which in turn will end in unrealiable tags. So those observations would probably create more problems in topic modeling rather than adding variance.
+```{r data-preprocessing}
+bgg.useful <- BoardGames %>% 
+  bgg.prepare.data() %>%
+  filter(stats.usersrated >= 5, game.type == "boardgame") %>%
+  mutate(stats.average.factor = arules::discretize(stats.average,
+                                           method="frequency",
+                                           categories = 5, 
+                                           ordered = TRUE))
+
+rownames(bgg.useful) <- make.names(bgg.useful$details.name, unique=TRUE)
+```
+
+After the cleaning phase, the resulting dataset was shrinked to __`r NROW(bgg.useful)`__.
+
+Since tags columns can host more than one tag (comma-separated), I created a set of dummyvars from __all the tags__ I found on the columns __category__, __mechanic__, __family__ and __implementation__. Other tags columns, for example the column __expansions__ are totally freeform and their contribute to variance is not significant, so I trashed them.
+
+```{r dummy-vars}
+bgg.dummy <- cSplit_e(bgg.useful, "attributes.boardgamecategory", type="character", fill=0, drop=TRUE)
+bgg.dummy <- cSplit_e(bgg.dummy, "attributes.boardgamemechanic", type="character", fill=0, drop=TRUE)
+bgg.dummy <- cSplit_e(bgg.dummy, "attributes.boardgamefamily", type="character", fill=0, drop=TRUE)
+bgg.dummy <- cSplit_e(bgg.dummy, "attributes.boardgameimplementation", type="character", fill=0, drop=TRUE)
+
+colnames(bgg.dummy) <- gsub(" ", "", colnames(bgg.dummy))
+colnames(bgg.dummy) <- gsub("/", "-", colnames(bgg.dummy))
+colnames(bgg.dummy) <- gsub("_", ".", colnames(bgg.dummy))
+
+bgg.dummy <- cbind(
+  bgg.dummy
+  ,dummies::dummy("details.minplayers.factor", bgg.dummy, sep="=")
+  ,dummies::dummy("details.maxplayers.factor", bgg.dummy, sep="=")
+  ,dummies::dummy("details.playingtime.factor", bgg.dummy, sep="=")
+  ,dummies::dummy("details.minage.factor", bgg.dummy, sep="=")
+  ,dummies::dummy("stats.weight.factor", bgg.dummy, sep="=")
+  ,dummies::dummy("stats.average.factor", bgg.dummy, sep="=")
+  ,dummies::dummy("polls.language.dependence", bgg.dummy, sep="=")
+)
+
+colnames(bgg.dummy) <- make.names(colnames(bgg.dummy))
+
+bgg.dummy.cat <- bgg.dummy %>% select(matches("attributes.boardgame(category|mechanic|family|implementation)."))
+```
+
+I ended up with a quite impressive set of __`r NCOL(bgg.dummy.cat)`__ dummy variables, very sparsely distributed.
+
+And here the problems start to arise...
+
+# Why topic modeling?
+
+To answer this questions, let's have a look on how the most important tag attributes, __category__ and __mechanic__, act into the data. I did it already in another kernel, actually, but let's sum-up the conclusions again.
+```{r exploration, echo=FALSE}
+cat_columns <- colnames(bgg.dummy)[startsWith(colnames(bgg.dummy), "attributes.boardgamecategory.")]
+mec_columns <- colnames(bgg.dummy)[startsWith(colnames(bgg.dummy), "attributes.boardgamemechanic.")]
+bgg.dummy %>%
+  select(stats.average, starts_with("attributes.boardgamecategory.")) %>%
+  bind_cols(., select_(., .dots = setNames(cat_columns, sprintf("count.%s", cat_columns)))) %>%
+  mutate_each(funs(. * stats.average), starts_with("attributes.boardgamecategory.")) %>%
+  select(-stats.average) %>%
+  summarise_each(funs(sum)) %>%
+  gather(boardgamecategory, value) %>%
+  mutate(boardgamecategory = gsub("([a-z])([A-Z])",
+                                  "\\1 \\2",
+                                  gsub("attributes.boardgamecategory.", 
+                                       "",
+                                       boardgamecategory))
+  ) %>%
+  mutate(count=ifelse(startsWith(boardgamecategory, "count."), value, 0)) %>%
+  mutate(value=ifelse(!startsWith(boardgamecategory, "count."), value, 0)) %>%
+  mutate(boardgamecategory = gsub("count.", "", boardgamecategory)) %>%
+  mutate(boardgamecategory = gsub("\\.",
+                                  " ", boardgamecategory)) %>%
+  group_by(boardgamecategory) %>%
+  summarise_each(funs(sum)) %>%
+  filter(count > 0) %>%
+  mutate(weight = ifelse(value==0, NA, value/count)) %>%
+  select(-value) %>% 
+  group_by(boardgamecategory) %>%
+  summarise_at(vars(count), funs(sum)) %>%
+  mutate(percent.total = count / sum(count)) %>%
+  arrange(-count) %>% 
+  top_n(how.many.to.show) %>% 
+  ggplot(aes(reorder(boardgamecategory, -percent.total), percent.total)) +
+  geom_bar(stat="identity", fill=brewer.pal(3, brewer.palette.categories)[1], alpha=.2, col=brewer.pal(3, brewer.palette.categories)[2]) +
+  geom_text(aes(reorder(boardgamecategory, -percent.total), label=percent(percent.total), percent.total), angle=90, size=3, hjust=-.1) +
+  ylab("Frequency in Games") + xlab("Categories") + scale_y_continuous(labels=percent, expand = c(.02, .01)) +
+  ggtitle(paste("Top", how.many.to.show, "Categories")) +
+  theme(axis.text.x = element_text(angle = 90, size=9), axis.text.y = element_text(size=9))
+
+bgg.dummy %>%
+  select(stats.average, starts_with("attributes.boardgamemechanic.")) %>%
+  bind_cols(., select_(., .dots = setNames(mec_columns, sprintf("count.%s", mec_columns)))) %>%
+  mutate_each(funs(. * stats.average), starts_with("attributes.boardgamemechanic.")) %>%
+  select(-stats.average) %>%
+  summarise_each(funs(sum)) %>%
+  gather(boardgamemechanic, value) %>%
+  mutate(boardgamemechanic = gsub("([a-z])([A-Z])",
+                                  "\\1 \\2",
+                                  gsub("attributes.boardgamemechanic.", 
+                                       "",
+                                       boardgamemechanic))
+  ) %>%
+  mutate(count=ifelse(startsWith(boardgamemechanic, "count."), value, 0)) %>%
+  mutate(value=ifelse(!startsWith(boardgamemechanic, "count."), value, 0)) %>%
+  mutate(boardgamemechanic = gsub("count.", "", boardgamemechanic)) %>%
+  mutate(boardgamemechanic = gsub("\\.",
+                                  " ", boardgamemechanic)) %>%
+  group_by(boardgamemechanic) %>%
+  summarise_each(funs(sum)) %>%
+  filter(count > 0) %>%
+  mutate(weight = ifelse(value==0, NA, value/count)) %>%
+  select(-value) %>% 
+  group_by(boardgamemechanic) %>%
+  summarise_at(vars(count), funs(sum)) %>%
+  mutate(percent.total = count / sum(count)) %>%
+  arrange(-count) %>% 
+  top_n(how.many.to.show) %>%
+  ggplot(aes(reorder(boardgamemechanic, -percent.total), percent.total)) +
+  geom_bar(stat="identity", fill=brewer.pal(3, brewer.palette.mechanics)[1], alpha=.2, col=brewer.pal(3, brewer.palette.mechanics)[2]) +
+  geom_text(aes(reorder(boardgamemechanic, -percent.total), label=percent(percent.total), percent.total), angle=90, size=3, hjust=-.1) +
+  ylab("Frequency in Games") + xlab("Mechanics") + scale_y_continuous(labels=percent, expand = c(.02, .01)) +
+  ggtitle(paste("Top", how.many.to.show, "Mechanics")) +
+  theme(axis.text.x = element_text(angle = 90, size=9), axis.text.y = element_text(size=9))
+```
+
+Looking at the relative frequencies, we would see that, excluding the frist two or three elements, tags distribute themselves in a very long tail, with the vast majority of them present in less than 1% of games. This is also true, and even more accentuate, for families and implementations attribute. But I said before the dummy matrix is very sparse, so there's nothing new here.
+
+The problem is that with a so sparse matrix, typical dimensionality reduction will simply not work. And this is proven: I trained a Multiple Corrispondance Analysis model and it ended up with the primary dimension only explaining ~2% of the total variance, secondary dimensions adding ~0.005% variance each and no cutoff. Forget it a dimensionality reduction here!
+
+But tags are filled at the same time and synonims are allowed, so it's a natural assumption to say that some relations between them are possible. The dummy matrix have a layout which is very similar to a document-term matrix you would build reshaping a text corpus.
+
+So, for clustering tags together __and__ reduce dimensionality in the process, what I really need is a __topics categorization model__.
+
+Does a topic model exist for a very space document-term matrix? Yes, [it does!](http://snap.stanford.edu/soma2010/papers/soma2010_12.pdf)
+
+# Build the Topic Model: LDA
+As I read in the aforementioned paper, the Latent Dirichlet Allocation is the best model so far to classify short and sparse text with hidden topics (ie. without knowing how many topics you've so far). But would the tags collections (shaped as document-term) are _enough_ to apply the model or the matrix is too much sparse _even for this family of models?_
+
+Ready to train? Well...almost.
+
+LDA requires you to specify the number of topics you want. But which is the optimal number of topics?
+To answer this question, I could build a [bag of indexes](https://cran.r-project.org/web/packages/ldatuning/vignettes/topics.html) but it would take __days__ (and a ban from Kernels, probably eheh) and I'm not sure they would work in this case as they tend to overaestimate the needed number of topics. Since I need minimization more than accuracy here, I decided to not use these indexes.
+
+```{r optimal-topics}
+k.control <- list(burnin = 500, iter = 1000, keep = 100)
+
+# Only games with a least one tag can be used for LDA
+bgg.lda.valid <- bgg.dummy.cat[which(rowSums(bgg.dummy.cat != 0)>=1),]
+
+# Clean the columns names for better viz
+colnames(bgg.lda.valid) <- gsub("attributes\\.boardgame(category|mechanic|family|implementation)\\.(.*)", "\\2\\.\\1", colnames(bgg.lda.valid), perl = TRUE)
+
+# Kaggle won't allow to source files hosted on gist, so I execute the function offline
+# and ended up with k = 37, but 25 was so close that I decided to stay low.
+
+#k <- optimal_k(bgg.lda.valid, 50, control = k.control)
+#plot(k)
+k <- 25
+```
+
+In facts, it's much easier to use a helper function made by [tinker](https://github.com/trinker) which basically performs a trial-and-error simulation of various LDA models and select the number of topic which maximizes the harmonic mean of the log likelihood. Thus, the number of topics I've decided to keep is __`r k`__.
+
+Now we're ready to train the model using the Gibbs sampling. If you want to try this at home, please consider watching a TV-Serie episode in the meanwhile, as it take a while :)
+```{r gibbs}
+#Set parameters for Gibbs sampling
+gibbs.control <- list(burnin = 4000,
+                      iter = 1000,
+                      thin = 500,
+                      seed = list(2003,5,63,100001,765,287,899,101,49,3),
+                      nstart = 10,
+                      best = TRUE)
+
+
+#Run LDA using Gibbs sampling
+bgg.ldaOut <-LDA(bgg.lda.valid,
+                 k=as.numeric(k),
+                 method="Gibbs",
+                 control=gibbs.control)
+
+# Best candidate topic column
+bgg.ldaOut.main.topics <- as.matrix(topics(bgg.ldaOut))
+
+# Top 10 tags for each topic
+bgg.ldaOut.top.terms <- tidy(bgg.ldaOut, matrix = "beta") %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+# Top most representative document for each topic
+bgg.ldaOut.top.documents <- tidy(bgg.ldaOut, matrix = "gamma") %>%
+  group_by(topic) %>%
+  top_n(10, gamma) %>%
+  ungroup() %>%
+  arrange(topic, -gamma)
+```
+
+In the terms-topic matrix,  we can evaluate the index _beta_, which represents the probability for a given term (tag) to be generated in a given topic. For example, let's see the top 10 tags that are more probably to be seen in the topic 24:
+
+```{r topic24-tags, results = 'asis', echo=FALSE}
+datatable(bgg.ldaOut.top.terms %>% filter(topic==24) %>% select(-topic), options = list(paging = FALSE, searching = FALSE, ordering = FALSE))
+```
+
+The same can be done in the documents-term matrix with the index _gamma_ about the probability for a given document (game) to be assigned to a given topic:
+
+```{r topic24-games, results = 'asis', echo=FALSE}
+datatable(bgg.ldaOut.top.documents %>% filter(topic==24) %>% select(-topic), options = list(paging = FALSE, searching = FALSE, ordering = FALSE))
+```
+
+But looking at tags and documents alone would end in a difficult interpretation of the data, so it's metter to craft a good visualization viewport.
+
+# Visual Inspection of Results
+
+The inspection of the results is crucial to understand if the topics are realistic and reliable, and this must be done mannualy (that's why I decided to keep the total number of topics low!). The tags and the documents matrices, as looked alone, are probably difficult to interpretate, so I'm going to build an integrated plot.
+
+Staying with the topic 24, here's the resulting plot:
+
+```{r topics24-all, echo=FALSE}
+i <- 24
+multiplot(
+    bgg.ldaOut.top.terms %>%
+      mutate(term = reorder(term, beta)) %>%
+      filter(topic == i) %>%
+      ggplot(aes(term, beta, fill = factor(topic))) +
+      geom_col(show.legend = FALSE, fill = "pink") +
+      facet_wrap(~ topic, scales = "free") +
+      coord_flip(),
+    bgg.ldaOut.top.documents %>%
+      mutate(document = reorder(document, gamma)) %>%
+      filter(topic == i) %>%
+      ggplot(aes(document, gamma, fill = factor(topic))) +
+      geom_col(show.legend = FALSE, fill = "lightblue") +
+      facet_wrap(~ topic, scales = "free") +
+      coord_flip()
+  )
+```
+
+Now it's clear! This is the cluster of those abstract strategy games which probably have been, more or less, inspired by Chess!
+
+But let's do a double check. Since this iconic game is not into the Top 10 of documents (games), but I expect it to fall into the topic 24 as well, so let's have a look on where it is:
+
+```{r chess, echo=FALSE}
+chess.variants <- ((bgg.ldaOut.main.topics[which(grepl("Chess", rownames(bgg.ldaOut.main.topics))),]))
+chess.table <- table(chess.variants)
+
+chess.table
+```
+
+Nice to see that of all the __`r NROW(chess.variants)`__ Chess games present in database __`r chess.table[which(row.names(chess.table)=="24")]`__ have been correctly assigned to topic 24. If this is not a good sign, nothing else will be! :)
+
+So, after some manual inspection on all the topics, I'm finally able to assign a label to them and update the original dataset with the _topic_ factor column. Luckily enough, it seems that all the topics are reliable.
+
+```{r topics, echo=FALSE}
+# After manual inspection...
+topic.labels <- c("Co-op Games",
+                  "SciFi Games",
+                  "Solitaires",
+                  "Corporate Strategy Games",
+                  "Traditional Card Games",
+                  "Napoleonic Wargames",
+                  "Modern Wargames",
+                  "Monopoly-inspired",
+                  "Dexterity Games",
+                  "Collectible Games",
+                  "Party Tabletop Games",
+                  "Party Card Games",
+                  "Children's Games",
+                  "Turnless Games",
+                  "Horror Miniatures",
+                  "Crowdfunded Card Games",
+                  "XIX Century Wargames",
+                  "Memory Games",
+                  "Fantasy Miniatures",
+                  "Classical Dice Games",
+                  "Licensed Games",
+                  "Area Control Games",
+                  "Sport Simulations",
+                  "Abstract Strategy Games",
+                  "Modern Card Games")
+
+bgg.ldaOut.main.topics.df <- as.data.frame(topics(bgg.ldaOut))
+colnames(bgg.ldaOut.main.topics.df) <- "topic"
+
+bgg.topics <- (left_join(bgg.useful %>% mutate(symbol = rownames(bgg.useful)),
+                         as.data.frame(topics(bgg.ldaOut)) %>% mutate(symbol = rownames(bgg.ldaOut.main.topics.df)),
+                         by = 'symbol')) %>% select(-symbol) %>% dplyr::rename(topic = `topics(bgg.ldaOut)`)
+
+bgg.topics$topic <- factor(bgg.topics$topic, labels=topic.labels)
+
+datatable(data.frame(topic.index=1:as.numeric(k), topic.label = topic.labels), options = list(searching = FALSE, ordering = FALSE, lengthMenu = list(10)))
+```
+
+# Distributions of result and further explorations
+
+If you remember, both the categories and mechanics distributions (the most important tags collections) present a short-head, long-tail distribution with no tags expressing a relevant amount of variance. So, let's the frequency plot for topics, instead.
+
+```{r topics-plot, echo=FALSE}
+bgg.topics %>%
+  group_by(topic) %>%
+  dplyr::summarise(count = n()) %>%
+  mutate(percent.total = count / sum(count)) %>%
+  arrange(-count) %>% 
+  ggplot(aes(reorder(topic, -percent.total), percent.total)) +
+  geom_bar(stat="identity", fill="darkgreen", alpha=.4) +
+  geom_text(aes(reorder(topic, -percent.total), label=percent(percent.total), percent.total), angle=90, size=3, hjust=-.1) +
+  ylab("Percent of Total Games") + xlab("Game Topics") + scale_y_continuous(labels=percent, expand = c(.02, .01)) +
+  ggtitle(paste("Distribution of Game Topics")) +
+  theme(axis.text.x = element_text(angle = 90, size=9), axis.text.y = element_text(size=9))
+```
+
+This is much better, I think. Topics class have a much more comparable frequency, which is good because it means that all topics are _relevant_ in the data and that we can use topics itself as a new attribute for, let's say, further exploration.
+
+Take as example this plot where the correlation index between __rating__ and __weight__ (difficulty) of a game is shown for various topics. This would suggest me that, altough BGG users prefer difficult games, this is expecially true for the __Corporate Strategy Games__, which is realistic since in this topic fall games like _Puerto Rico_ and _Le Havre_ and all those german games made famous to be strategically rich, but very hard to play.
+
+This also suggest me that when train a classification model, I could probably try a segregation strategy., at least separating this topic's games from others.
+
+```{r corrplot, echo=FALSE}
+bgg.topics %>%
+  select(stats.averageweight, stats.average, topic) %>%
+  plyr::ddply(plyr::.(topic), function(xx) { return(data.frame(COR = cor(xx$stats.averageweight, xx$stats.average))) }) %>%
+  arrange(-COR) %>% 
+  ggplot(aes(reorder(topic, -COR), COR)) +
+  geom_bar(stat="identity", fill=brewer.pal(3, brewer.palette.topics)[1], alpha=.2, col=brewer.pal(3, brewer.palette.topics)[2]) +
+  geom_text(aes(reorder(topic, -COR), label=sprintf("%1.3f", COR), COR), angle=90, size=3, hjust=-.1) +
+  ylab("COR") + xlab("Game Topics") + scale_y_continuous(expand = c(.04, .1)) +
+  ggtitle(paste("Correlation between Weight and Rating")) +
+  theme(axis.text.x = element_text(angle = 90, size=9), axis.text.y = element_text(size=9))
+```
+
+# Relationships between topics
+
+While I assigned a particular document (game) to only a topics (the one with the highest probability of its term o be generated into), Gibbs' matrix computes the probability for __all__ terms and __all__ topics. This is logic, as documents could be considered a variable mixture of all the topics (but, ofc, with different probabilities).
+
+This gives us the possibility to explore the __relationships__ between topics based on word probabilities and plot them into a network graph.
+
+After some cleaning in edge weights and absolute sizes (which must be tuned considering how much the tags matrix is sparse), here's the resulting graph:
+
+```{r network-topics}
+bgg.post <- posterior(bgg.ldaOut)
+
+bgg.cor_mat <- cor(t(bgg.post[["terms"]]))
+bgg.cor_mat[bgg.cor_mat < .001 ] <- 0
+diag(bgg.cor_mat) <- 0
+
+bgg.graph <- graph.adjacency(bgg.cor_mat, weighted=TRUE, mode="lower")
+bgg.graph <- delete.edges(bgg.graph, E(bgg.graph)[ weight < 0.04])
+
+E(bgg.graph)$edge.width <- E(bgg.graph)$weight * 5
+V(bgg.graph)$label <- as.character(factor(V(bgg.graph),
+                             labels=topic.labels))
+
+V(bgg.graph)$size <- colSums(bgg.post[["topics"]])/200
+
+par(mar=c(0, 0, 3, 0))
+set.seed(110)
+plot.igraph(bgg.graph, edge.width = E(bgg.graph)$edge.width, 
+            main = "Strength Between Topics Based On Word Probabilities",
+            edge.color = "orange",
+            vertex.color = "orange", 
+            vertex.frame.color = NA,
+            vertex.label.color = "grey10",
+            vertex.label.cex=.8)
+```
+
+If you know a bit the world of Board Games, you'll see that this network is absolutely realistic, and this another proof on how robust is our topic model and provides good insight on the data by itself, exposing otherwise hidden relationships between topics and, in turn, the games.
+
+# Conclusions
+
+In this Kernel I introduced a LDA model to topic models discrete one-to-many collections of tags. Although this model is usually used in text mining, if you have enough tags you can successfully find a finite number of topics, even if the tags matrix is very sparse.
+
+After some labeling through manual inspections of results
