@@ -1,5 +1,5 @@
 ---
-title: "Too many tags! Topic modeling game attributes on BoardGameGeek dataset"
+title: "Too many tags! Topic modeling on BoardGameGeek dataset"
 author: "Gabriele Baldassarre"
 date: '`r Sys.Date()`'
 output:
@@ -13,7 +13,7 @@ output:
     toc: yes
     toc_depth: 4
 vignette: >
-  %\VignetteIndexEntry{Topic modeling game attributes of BoardGameGeek dataset}
+  %\VignetteIndexEntry{Topic modeling on BoardGameGeek dataset}
   %\VignetteEngine{knitr::rmarkdown}
   \usepackage[utf8]{inputenc}
 ---
@@ -455,4 +455,6 @@ If you know a bit the world of Board Games, you'll see that this network is abso
 
 In this Kernel I introduced a LDA model to topic models discrete one-to-many collections of tags. Although this model is usually used in text mining, if you have enough tags you can successfully find a finite number of topics, even if the tags matrix is very sparse.
 
-After some labeling through manual inspections of results
+After some labeling through manual inspections of results, it seems that topics are much reliable, and the model is robust. Thus, topics can be used for better inspection and, last but not least, for dimensionality reduction.
+
+I cannot go further on Kaggle due to limitations of Kernel VMs, but on my [personal website](https://gabrielebaldassarre.com) I'm going to perform another step  to find relationships between topics throu network analysis.

@@ -16,7 +16,7 @@
 #' @param bgg.dataset the BoardGames dataset object to prepare
 #'
 #' @importFrom splitstackshape cSplit_e
-#' @importFrom dplyr select "%>%"
+#' @importFrom dplyr select "%>%" one_of contains
 #' @importFrom plyr round_any
 #'
 #' @export

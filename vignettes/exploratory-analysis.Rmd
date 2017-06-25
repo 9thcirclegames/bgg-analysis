@@ -41,15 +41,13 @@ knitr::opts_chunk$set(
 ######################
 # REQUIREMENTS       #
 ######################
-if(FALSE %in% 
-  do.call(c,lapply(c("tidyverse",
-                     "GGally",
-                     "scales", 
-                     "wesanderson"), function(pkg){
-    if(! require(pkg, character.only = TRUE)) install.packages(pkg, depend = TRUE)
-    library(pkg, character.only = TRUE, logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)
-  }))
-) stop("Cannot resolve some dependencies; exiting now...")
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load("tidyverse",
+               "GGally",
+               "scales", 
+               "wesanderson",
+               "plyr",
+               "arules")
 
 if(!require("bggAnalysis")) {
   devtools::install_github("pkg, depend = TRUE")
@@ -171,7 +169,7 @@ Anyway, a better look for the quality of games among times is when we summarize 
 ```{r}
 # Splitting by year class
 ggplot(bgg.useful %>%
-         mutate(year.discrete=as.factor(round_any(as.numeric(details.yearpublished), 5))) %>%
+         mutate(year.discrete=as.factor(plyr::round_any(as.numeric(details.yearpublished), 5))) %>%
          filter(as.numeric(details.yearpublished) >=1960 & as.numeric(details.yearpublished) <= 2016)
        , aes(year.discrete, stats.average, fill=year.discrete)) +
   geom_boxplot(alpha=.4) +

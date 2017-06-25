@@ -184,7 +184,7 @@ ggplot(head(bgg.categories.top,40), aes(reorder(boardgamecategory, -percent.tota
 
 Categories distribution has a clear short-head, long-tail distribution. In facts, the Top `r how.many.categories` categories
 ```{r echo = FALSE, results = 'asis'}
-head(bgg.categories.top, how.many.categories) %>% mutate(percent.total = percent(percent.total))
+datatable(bgg.categories.top %>% mutate(percent.total = percent(percent.total)))
 ```
 
 are present in the __`r (head(bgg.categories.top, how.many.categories) %>% summarise(percent.total = sum(percent.total)) %>% mutate(percent.total = percent(percent.total)))$percent.total`__ of all games.
@@ -200,23 +200,6 @@ bgg.categories.rank <- bgg.categories.top %>%
                                    categories=3,
                                    method="frequency"))
 datatable(bgg.categories.rank %>% mutate(percent.total = percent(percent.total)))
-```
-
-And here's faceted spaghetti plot where each grey line plot the avg. (unweighted) rating for a given category in the set. As we may see, the improve in quality is widely spreaded for all the categories so far, altough I see a wider dispersion for the baseline categories.
-
-```{r}
-
-
-ggplot(aes(x = details.yearpublished, y = weight), data = left_join(bgg.cat.year, bgg.categories.rank %>%
-          select(boardgamecategory, rank.segment), by = "boardgamecategory")) +
-  geom_line(aes(group = boardgamecategory), color = "gray", alpha=.2) +
-  geom_smooth(aes(group = 1), method = "loess" , size = 1, color = "orange", se = FALSE) +
-  ylab(paste("Avg. Rating", sep=" ")) +
-  xlab("Publishing Year") +
-  facet_grid(. ~ rank.segment) +
-  theme_bw()
-
-
 ```
 
 Finally, it's time for some boxplots. The first one doesn't facet, as I want a static photography of all the games so far.
