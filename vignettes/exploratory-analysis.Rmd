@@ -49,7 +49,8 @@ pacman::p_load("tidyverse",
                "plyr",
                "arules")
 
-pacman::p_load_current_gh("9thcirclegames/bgg-analysis")
+devtools::install_github("9thcirclegames/bgg-analysis")
+library("bggAnalysis")
 
 source("https://gist.githubusercontent.com/theclue/a4741899431b06941c1f529d6aac4387/raw/f69d9b5a420e2c4707acad69f31c6e6a3c15e559/ggplot-multiplot.R")
 
@@ -77,19 +78,18 @@ corr.palette <- wes_palette(name="Darjeeling", 3, type = "continuous")
 
 data("BoardGames")
 
-bgg.useful <- BoardGames %>%
+bgg.useful <- BoardGames %>% 
   bgg.prepare.data() %>%
   filter(!is.na(details.yearpublished)) %>%
   filter(details.yearpublished <= 2016) %>%
   filter(details.yearpublished >= 1960) %>%
   filter(stats.usersrated >= 5, game.type == "boardgame") %>%
-  mutate(stats.average.factor = discretize(stats.average,
+  mutate(stats.average.factor = arules::discretize(stats.average,
                                            method="frequency",
                                            categories = 5, 
                                            ordered = TRUE))
 
 rownames(bgg.useful) <- make.names(bgg.useful$details.name, unique=TRUE)
-
 ```
 
 At the end of the day, we've a nice, good looking dataset made of `r NROW(bgg.useful)` official,
@@ -191,8 +191,8 @@ Just for start, I'm going to perform a simple correlation plot.
 ggcorr(data = bgg.useful %>%
   filter(stats.usersrated >= 100) %>%
   select(starts_with("details"),
-         +stats.average,
-         +stats.averageweight,
+         stats.average,
+         stats.averageweight,
          -ends_with(".factor"),
          -details.name,
          -details.yearpublished)

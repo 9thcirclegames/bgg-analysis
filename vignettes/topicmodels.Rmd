@@ -51,14 +51,15 @@ pacman::p_load("tidyverse",
                "topicmodels",
                "tidytext",
                "igraph",
-               "DT")
+               "DT",
+               "arules")
 
 # Watch out! To install topicmodels, gsl system library must be installed
 # macOS: brew install gsl
 # Ubuntu: sudo apt-get install gsl
 
-pacman::p_load_current_gh("9thcirclegames/bgg-analysis")
-
+devtools::install_github("9thcirclegames/bgg-analysis")
+library("bggAnalysis")
 
 ## Source useful functions on gist
 invisible(lapply(c("https://raw.githubusercontent.com/trinker/topicmodels_learning/master/functions/optimal_k.R",
