@@ -57,11 +57,8 @@ pacman::p_load("tidyverse",
 # macOS: brew install gsl
 # Ubuntu: sudo apt-get install gsl
 
-if(!require("bggAnalysis")) {
-  devtools::install_github("9thcirclegames/bgg-analysis")
-  if(!library("bggAnalysis", logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)) 
-    stop("Cannot install bggAnalysis from GitHub; exiting now...")
-}
+pacman::p_load_current_gh("9thcirclegames/bgg-analysis")
+
 
 ## Source useful functions on gist
 invisible(lapply(c("https://raw.githubusercontent.com/trinker/topicmodels_learning/master/functions/optimal_k.R",

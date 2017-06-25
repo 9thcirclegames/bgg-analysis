@@ -49,11 +49,7 @@ pacman::p_load("tidyverse",
                "plyr",
                "arules")
 
-if(!require("bggAnalysis")) {
-  devtools::install_github("pkg, depend = TRUE")
-  if(!library("bggAnalysis", logical.return = TRUE, quietly = TRUE, warn.conflicts = FALSE)) 
-    stop("Cannot install bggAnalysis from GitHub; exiting now...")
-}
+pacman::p_load_current_gh("9thcirclegames/bgg-analysis")
 
 source("https://gist.githubusercontent.com/theclue/a4741899431b06941c1f529d6aac4387/raw/f69d9b5a420e2c4707acad69f31c6e6a3c15e559/ggplot-multiplot.R")
 
