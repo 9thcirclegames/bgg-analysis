@@ -1,6 +1,6 @@
 #' Decode dummy variables
 #'
-#' This function will create the dummy variables for some attributes (game category and game mechanic atm).
+#' This function will create the dummy variables for categories, mechanics, families and implementations.
 #' It doesn't drop the original columns.
 #'
 #' @param bgg.dataset the BoardGames dataset object
