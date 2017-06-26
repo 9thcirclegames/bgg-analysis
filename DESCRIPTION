@@ -1,16 +1,15 @@
 Package: bggAnalysis
 Type: Package
-Version: 0.0.1
+Version: 0.2
 Title: What makes a game a good game?
 Description: An attempt to perform a data analysis from user-generated content from BoardGameGeeks data
 Authors@R: person("Gabriele", "Baldassarre", role = c("aut", "cre"), email = "gabriele@gabrielebaldassarre.com")
 Date: 2015-10-21
 URL: https://gabrielebaldassarre.com
 BugReports: https://github.com/9thcirclegames/bgg-analysis/issues
-Depends: R (>= 3.0)
-Imports: plyr, dplyr, splitstackshape, ggplot2, arules, dendextend, DBI, RSQLite, data.table
-Suggests: testthat, knitr, rjson, RCurl, XML, xml2,
-    rmarkdown
+Depends: R (>= 3.1)
+Imports: tidyverse, plyr, splitstackshape, FactoMineR, scales, wesanderson, factoextra, dummies, RColorBrewer, topicmodels, tidytext, igraph,  arules, dendextend, DBI, RSQLite, DT
+Suggests: testthat, knitr, rjson, RCurl, XML, xml2, rmarkdown
 License: MIT + file LICENSE
 NeedsCompilation: no
 BuildKeepEmpty: TRUE
